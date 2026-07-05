@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, 
-  Bell, Clock, Sun, Moon, Heart, Download, 
-  Minimize, ChevronDown, ChevronUp, Search, Upload, X
+  Sun, Moon, Heart, Download, 
+  Minimize, ChevronDown, Search, Upload, X
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS, getCurrentProgram } from './data/channels';
@@ -37,7 +37,6 @@ export default function App() {
   // 드롭다운 및 아코디언 토글 상태 (풀다운 메뉴 개편 핵심)
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
   const [isSubCategoryOpen, setIsSubCategoryOpen] = useState<boolean>(false);
-  const [isEpgOpen, setIsEpgOpen] = useState<boolean>(false);
   
   // 예약 알림 및 타이머
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -256,28 +255,6 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const toggleReserveAlert = (program: Program) => {
-    const isReserved = reservedAlerts.some(
-      a => a.channelId === activeChannel.id && a.program.startTime === program.startTime
-    );
-    let updated;
-    if (isReserved) {
-      updated = reservedAlerts.filter(
-        a => !(a.channelId === activeChannel.id && a.program.startTime === program.startTime)
-      );
-    } else {
-      updated = [...reservedAlerts, {
-        channelId: activeChannel.id,
-        channelName: activeChannel.name,
-        program
-      }];
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        Notification.requestPermission();
-      }
-    }
-    setReservedAlerts(updated);
-    localStorage.setItem('tv-alerts', JSON.stringify(updated));
-  };
 
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -610,16 +587,43 @@ export default function App() {
         <section className="player-section">
           
           <div className="player-main-row">
-            {selectedCategory === 'M3U 방송' && (
+            <div className="player-sidebar-list">
+              {/* Sidebar 검색창 */}
+              <div className="sidebar-search-box">
+                <Search className="sidebar-search-icon w-4 h-4" />
+                <input 
+                  type="text"
+                  placeholder="채널 검색..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setVisibleCount(60);
+                  }}
+                  className="sidebar-search-input"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => {
+                      setSearchQuery('');
+                      setVisibleCount(60);
+                    }} 
+                    className="sidebar-search-clear"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* 스크롤 가능한 채널 리스트 영역 */}
               <div 
-                className="player-sidebar-list"
+                className="sidebar-channels-scroll"
                 onScroll={handleScroll}
               >
-                {m3uChannels.length === 0 ? (
+                {selectedCategory === 'M3U 방송' && m3uChannels.length === 0 ? (
                   <div className="sidebar-empty-state">
                     <p style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>M3U 방송 채널이 없습니다.</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      하단의 [M3U 재생 관리자]를 통해 로드해 주세요.
+                      상단 [기본 M3U 로드] 또는 [M3U 파일 업로드]를 통해 로드해 주세요.
                     </p>
                   </div>
                 ) : filteredChannels.length === 0 ? (
@@ -644,7 +648,7 @@ export default function App() {
                   })
                 )}
               </div>
-            )}
+            </div>
 
             {/* 플레이어 본체 */}
             <div 
@@ -753,184 +757,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3. 누누티비 VOD형 에피소드 아코디언 편성표 */}
-          <div className="epg-accordion">
-            <div 
-              className="epg-accordion-header" 
-              onClick={() => setIsEpgOpen(!isEpgOpen)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock className="w-4 h-4 text-red-500" />
-                <span>오늘의 에피소드 방영 일정표 보기</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{activeChannel.epg.length}개 편성</span>
-                {isEpgOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-            </div>
-            
-            <div className={`epg-accordion-content ${isEpgOpen ? 'open' : ''}`}>
-              {activeChannel.epg.map((prog, idx) => {
-                const now = new Date();
-                const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                const [startH, startM] = prog.startTime.split(':').map(Number);
-                const [endH, endM] = prog.endTime.split(':').map(Number);
-                const startMin = startH * 60 + startM;
-                let endMin = endH * 60 + endM;
-                if (endMin < startMin) endMin += 24 * 60;
-                
-                const isPast = currentMinutes >= endMin;
-                const isCurrent = currentMinutes >= startMin && currentMinutes < endMin;
-                const isReserved = reservedAlerts.some(
-                  a => a.channelId === activeChannel.id && a.program.startTime === prog.startTime
-                );
-
-                return (
-                  <div key={idx} className="epg-list-item" style={{ opacity: isPast ? 0.35 : 1 }}>
-                    <span className="epg-item-time">{prog.startTime} ~ {prog.endTime}</span>
-                    <div className="epg-item-info">
-                      <div className="epg-item-title-row">
-                        <span className="epg-item-title">{prog.title}</span>
-                        {isCurrent && <span className="ott-badge live" style={{ position: 'static', padding: '2px 5px', fontSize: '8px' }}>방영중</span>}
-                      </div>
-                      <p className="epg-item-desc">{prog.description}</p>
-                    </div>
-                    {!isPast && (
-                      <button 
-                        onClick={() => toggleReserveAlert(prog)}
-                        style={{ 
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          color: isReserved ? 'var(--warning-color)' : 'var(--text-muted)'
-                        }}
-                        title={isReserved ? '예약 해제' : '시청 알림 예약'}
-                      >
-                        <Bell className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-        </section>
-
-        {/* 4. 누누티비 썸네일 그리드 */}
-        <section style={{ width: '100%' }}>
-          <h2 className="ott-section-title">
-            <span className="section-bullet"></span>
-            <span>{selectedCategory} 방영 인기 에피소드</span>
-          </h2>
-
-          {/* M3U 업로드/로드 및 검색 제어 패널 */}
-          <div className="m3u-control-panel">
-            <div className="m3u-upload-section">
-              <span className="m3u-panel-title">M3U 재생 관리자</span>
-              {m3uChannels.length > 0 && (
-                <span className="m3u-status-text">
-                  불러온 파일: <strong>{m3uFileName}</strong> ({m3uChannels.length.toLocaleString()}개 채널 로드 완료)
-                </span>
-              )}
-            </div>
-
-            <div className="m3u-search-section">
-              <div className="search-input-wrapper">
-                <Search className="search-icon w-4 h-4" />
-                <input 
-                  type="text"
-                  placeholder="채널 이름 또는 그룹 검색..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setVisibleCount(60);
-                  }}
-                  className="search-input"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => {
-                      setSearchQuery('');
-                      setVisibleCount(60);
-                    }} 
-                    className="search-clear-btn"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {selectedCategory === 'M3U 방송' ? null : (
-            <>
-              <div className="ott-grid">
-                {visibleChannels.map((ch) => {
-                  const isActive = activeChannel.id === ch.id;
-                  const epgInfo = getCurrentProgram(ch);
-                  const isBookmarked = bookmarks.includes(ch.id);
-
-                  return (
-                    <div 
-                      key={ch.id} 
-                      className={`ott-card ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        setActiveChannel(ch);
-                        setIsPlaying(true);
-                      }}
-                    >
-                      {/* 포스터 썸네일 */}
-                      <div className="ott-thumbnail-box">
-                        <img 
-                          src={ch.thumbnail} 
-                          alt={ch.name} 
-                          className="ott-thumbnail-img"
-                          loading="lazy"
-                        />
-                        <span className="ott-badge live">LIVE</span>
-                        <span className="ott-ch-number">{ch.channelNumber} CH</span>
-                      </div>
-
-                      {/* 텍스트 설명 */}
-                      <div className="ott-card-info">
-                        <div className="ott-card-header">
-                          <span className="ott-card-name">{ch.name}</span>
-                          <button 
-                            onClick={(e) => toggleBookmark(ch.id, e)} 
-                            className={`heart-btn ${isBookmarked ? 'active' : ''}`}
-                          >
-                            <Heart className="w-3.5 h-3.5 fill-current" />
-                          </button>
-                        </div>
-
-                        <div className="ott-card-program">{epgInfo.program.title}</div>
-                        
-                        {/* 진행 바 */}
-                        <div className="ott-progress-track">
-                          <div 
-                            className="ott-progress-bar" 
-                            style={{ width: `${epgInfo.progress}%`, backgroundColor: isActive ? 'var(--brand-color)' : 'var(--accent-color)' }}
-                          ></div>
-                        </div>
-                      </div>
-                      
-                      {isActive && <div className="ott-active-bar"></div>}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {filteredChannels.length > visibleCount && (
-                <div className="show-more-container">
-                  <button 
-                    onClick={() => setVisibleCount(prev => prev + 60)} 
-                    className="show-more-btn"
-                  >
-                    더 많은 채널 보기 ({visibleCount} / {filteredChannels.length})
-                  </button>
-                </div>
-              )}
-            </>
-          )}
         </section>
 
       </main>
