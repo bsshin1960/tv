@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Settings, 
   Bell, Clock, Sun, Moon, Heart, Download, 
-  Minimize, ChevronDown, ChevronUp, Search, Upload, Loader, X
+  Minimize, ChevronDown, ChevronUp, Search, Upload, X
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS, getCurrentProgram } from './data/channels';
@@ -562,6 +562,38 @@ export default function App() {
               )}
             </div>
           )}
+
+          {/* M3U 로드 / 업로드 버튼 추가 (그룹 선택 박스 오른쪽) */}
+          {selectedCategory === 'M3U 방송' && (
+            <div className="m3u-header-buttons" style={{ display: 'flex', gap: '8px', marginLeft: '10px', alignItems: 'center' }}>
+              <button 
+                onClick={handleLoadPreloadedM3u} 
+                disabled={isLoadingM3u}
+                className="m3u-btn primary-glow"
+                style={{ padding: '6px 12px', fontSize: '11px', height: '34px', lineHeight: '1' }}
+              >
+                {isLoadingM3u && m3uFileName === 'World 2025.m3u' ? '로딩 중...' : '기본 M3U 로드'}
+              </button>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleUploadM3u} 
+                accept=".m3u,.m3u8" 
+                style={{ display: 'none' }} 
+              />
+              
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                disabled={isLoadingM3u}
+                className="m3u-btn outline"
+                style={{ padding: '6px 12px', fontSize: '11px', height: '34px', display: 'flex', alignItems: 'center', gap: '4px', lineHeight: '1' }}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>M3U 파일 업로드</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="header-right">
@@ -922,40 +954,6 @@ export default function App() {
           <div className="m3u-control-panel">
             <div className="m3u-upload-section">
               <span className="m3u-panel-title">M3U 재생 관리자</span>
-              <div className="m3u-buttons">
-                <button 
-                  onClick={handleLoadPreloadedM3u} 
-                  disabled={isLoadingM3u}
-                  className="m3u-btn primary-glow"
-                >
-                  {isLoadingM3u && m3uFileName === 'World 2025.m3u' ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Loader className="w-3.5 h-3.5 animate-spin" />
-                      <span>로딩 중...</span>
-                    </span>
-                  ) : (
-                    '기본 M3U 로드 (World 2025)'
-                  )}
-                </button>
-                
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleUploadM3u} 
-                  accept=".m3u,.m3u8" 
-                  style={{ display: 'none' }} 
-                />
-                
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  disabled={isLoadingM3u}
-                  className="m3u-btn outline"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>M3U 파일 업로드</span>
-                </button>
-              </div>
-              
               {m3uChannels.length > 0 && (
                 <span className="m3u-status-text">
                   불러온 파일: <strong>{m3uFileName}</strong> ({m3uChannels.length.toLocaleString()}개 채널 로드 완료)
