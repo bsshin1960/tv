@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Settings, Tv, 
+  Play, Pause, Volume2, VolumeX, Maximize, Settings, 
   Bell, Clock, Sun, Moon, Heart, Download, 
   Minimize, ChevronDown, ChevronUp, Search, Upload, Loader, X
 } from 'lucide-react';
@@ -12,7 +12,7 @@ import { parseM3U } from './utils/m3uParser';
 export default function App() {
   // --- 상태 관리 ---
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [selectedCategory, setSelectedCategory] = useState<string>('전체');
+  const [selectedCategory, setSelectedCategory] = useState<string>('지상파');
   const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[0]);
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem('tv-bookmarks');
@@ -470,13 +470,6 @@ export default function App() {
       {/* 1. OTT 통합 헤더 */}
       <header className="ott-header">
         <div className="header-left">
-          <div className="logo-container" onClick={() => setSelectedCategory('전체')}>
-            <div className="logo-icon">
-              <Tv className="w-5 h-5" />
-            </div>
-            <span className="logo-text">TV ON</span>
-          </div>
-
           {/* 카테고리 풀다운(Dropdown) 메뉴 통합 */}
           <div className="dropdown-container" ref={categoryRef}>
             <button 
