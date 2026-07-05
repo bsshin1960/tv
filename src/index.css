@@ -64,6 +64,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 글로벌 유틸리티 클래스 */
+.w-full {
+  width: 100% !important;
+}
+.h-full {
+  height: 100% !important;
+}
+.border-0 {
+  border: 0 !important;
+}
+
 body, html, #root {
   width: 100%;
   height: 100%;
@@ -211,10 +222,20 @@ body, html, #root {
   justify-content: center;
 }
 
+.player-wrapper:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
 .video-element {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill; /* 가득 찬 화면으로 방영되도록 설정 */
 }
 
 /* 풀다운/드롭다운 스타일 */

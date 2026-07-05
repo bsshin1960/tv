@@ -240,7 +240,7 @@ export default function App() {
   };
 
   const toggleFullscreen = () => {
-    const element = document.documentElement;
+    const element = playerContainerRef.current;
     if (!element) return;
     if (!document.fullscreenElement) {
       element.requestFullscreen().then(() => setIsFullscreen(true)).catch(console.error);
@@ -252,7 +252,20 @@ export default function App() {
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(console.error);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
 
@@ -694,14 +707,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* 정지 상태 큰 플레이 아이콘 */}
-              {!isPlaying && activeChannel.streamType !== 'youtube' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 cursor-pointer" onClick={() => setIsPlaying(true)}>
-                  <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg">
-                    <Play className="w-8 h-8 fill-current ml-1" />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
