@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Settings, 
+  Play, Pause, Volume2, VolumeX, Maximize, 
   Bell, Clock, Sun, Moon, Heart, Download, 
   Minimize, ChevronDown, ChevronUp, Search, Upload, X
 } from 'lucide-react';
@@ -31,19 +31,15 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [volume, setVolume] = useState<number>(0.5);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [quality, setQuality] = useState<string>('Auto');
-  const [videoFilter, setVideoFilter] = useState<string>('none');
   const [brightness, setBrightness] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   
   // 드롭다운 및 아코디언 토글 상태 (풀다운 메뉴 개편 핵심)
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
   const [isSubCategoryOpen, setIsSubCategoryOpen] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isEpgOpen, setIsEpgOpen] = useState<boolean>(false);
   
   // 예약 알림 및 타이머
-  const [sleepTimer, setSleepTimer] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [epgProgressInfo, setEpgProgressInfo] = useState<{
     program: Program;
@@ -72,7 +68,6 @@ export default function App() {
   // 드롭다운 외부 클릭 시 닫기용 Ref
   const categoryRef = useRef<HTMLDivElement>(null);
   const subCategoryRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- 이펙트 ---
@@ -84,16 +79,7 @@ export default function App() {
       setCurrentTime(now);
       setEpgProgressInfo(getCurrentProgram(activeChannel));
       
-      // 취침 타이머
-      setSleepTimer(prev => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          setIsPlaying(false);
-          if (videoRef.current) videoRef.current.pause();
-          return null;
-        }
-        return prev - 1;
-      });
+
 
       // 예약 알림 체크
       const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -119,9 +105,6 @@ export default function App() {
       }
       if (subCategoryRef.current && !subCategoryRef.current.contains(e.target as Node)) {
         setIsSubCategoryOpen(false);
-      }
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setIsSettingsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -672,8 +655,8 @@ export default function App() {
               className="player-wrapper"
             >
               <div 
-                className={`w-full h-full filter-${videoFilter}`}
-                style={{ filter: `brightness(${brightness}) ${videoFilter === 'none' ? '' : videoFilter}` }}
+                className="w-full h-full"
+                style={{ filter: `brightness(${brightness})` }}
               >
                 {activeChannel.streamType === 'youtube' ? (
                   <iframe 
@@ -763,117 +746,6 @@ export default function App() {
             </div>
 
             <div className="controls-right">
-              {/* 풀다운 상세 설정 박스 */}
-              <div className="dropdown-container" ref={settingsRef}>
-                <button 
-                  onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                  className={`dropdown-trigger ${isSettingsOpen ? 'active' : ''}`}
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>설정 옵션</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                
-                {isSettingsOpen && (
-                  <div className="dropdown-menu" style={{ minWidth: '260px' }}>
-                    
-                    {/* 화질 드롭다운 아이템 */}
-                    <div className="dropdown-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">비디오 화질</span>
-                      <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
-                        {['Auto', '1080p', '720p', '480p'].map(q => (
-                          <button 
-                            key={q} 
-                            onClick={() => setQuality(q)} 
-                            style={{ 
-                              flex: 1, padding: '4px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-color)',
-                              background: quality === q ? 'var(--brand-color)' : 'transparent',
-                              color: quality === q ? 'white' : 'var(--text-secondary)'
-                            }}
-                          >
-                            {q}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 비디오 필터 아이템 */}
-                    <div className="dropdown-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">시네마 필터</span>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', width: '100%' }}>
-                        {[
-                          { id: 'none', label: '표준화면' },
-                          { id: 'warm', label: '눈보호' },
-                          { id: 'cool', label: '차가운 블루' },
-                          { id: 'grayscale', label: '시네마 흑백' }
-                        ].map(f => (
-                          <button 
-                            key={f.id} 
-                            onClick={() => setVideoFilter(f.id)}
-                            style={{ 
-                              padding: '4px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-color)',
-                              background: videoFilter === f.id ? 'var(--brand-color)' : 'transparent',
-                              color: videoFilter === f.id ? 'white' : 'var(--text-secondary)'
-                            }}
-                          >
-                            {f.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 수동 밝기 바 */}
-                    <div className="range-slider-container">
-                      <div className="range-label-row">
-                        <span>화면 밝기</span>
-                        <span>{Math.round(brightness * 100)}%</span>
-                      </div>
-                      <input 
-                        type="range"
-                        min="0.2"
-                        max="1.5"
-                        step="0.05"
-                        value={brightness}
-                        onChange={(e) => setBrightness(Number(e.target.value))}
-                        className="range-slider"
-                      />
-                    </div>
-
-                    {/* 취침 타이머 아이템 */}
-                    <div className="dropdown-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">취침 타이머</span>
-                      <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
-                        {[
-                          { l: '꺼짐', v: null },
-                          { l: '10분', v: 10 },
-                          { l: '30분', v: 30 },
-                          { l: '60분', v: 60 }
-                        ].map(t => (
-                          <button 
-                            key={t.l} 
-                            onClick={() => setSleepTimer(t.v)} 
-                            style={{ 
-                              flex: 1, padding: '4px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-color)',
-                              background: sleepTimer === t.v ? 'var(--brand-color)' : 'transparent',
-                              color: sleepTimer === t.v ? 'white' : 'var(--text-secondary)'
-                            }}
-                          >
-                            {t.l}
-                          </button>
-                        ))}
-                      </div>
-                      {sleepTimer !== null && (
-                        <span style={{ fontSize: '9px', color: 'var(--warning-color)', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '4px' }}>
-                          <Clock className="w-2.5 h-2.5" />
-                          {sleepTimer}분 후 송출 종료
-                        </span>
-                      )}
-                    </div>
-
-                  </div>
-                )}
-              </div>
-
               {/* 전체화면 버튼 */}
               <button onClick={toggleFullscreen} className="icon-btn">
                 {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
