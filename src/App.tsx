@@ -218,6 +218,9 @@ export default function App() {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      if (activeChannel.streamUrl && activeChannel.streamUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(activeChannel.streamUrl);
+      }
     };
   }, [activeChannel, isLoadingM3u]);
 
@@ -459,12 +462,45 @@ export default function App() {
     }
   };
 
-  // 사용자 지정 M3U 파일 업로드
+  // 사용자 지정 M3U / MP4 파일 업로드
   const handleUploadM3u = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsLoadingM3u(true);
+
+    const isMp4 = file.name.toLowerCase().endsWith('.mp4');
+    if (isMp4) {
+      try {
+        const fileUrl = URL.createObjectURL(file);
+        const localVideoChannel: Channel = {
+          id: 'local-mp4',
+          channelNumber: 9999,
+          name: file.name,
+          category: 'M3U 방송',
+          logo: '🎞️',
+          thumbnail: 'https://images.unsplash.com/photo-1461151304267-38cd890855f1?w=500&auto=format&fit=crop&q=80',
+          streamUrl: fileUrl,
+          streamType: 'mp4',
+          epg: [
+            { startTime: '00:00', endTime: '24:00', title: file.name, description: '기기에서 직접 재생하는 로컬 동영상 파일입니다.', rating: 'ALL' }
+          ],
+          isM3u: true
+        };
+        setM3uChannels([localVideoChannel]);
+        setSelectedCategory('M3U 방송');
+        setSelectedM3uGroup('전체');
+        setSearchQuery('');
+        setActiveChannel(localVideoChannel);
+        setIsPlaying(true);
+      } catch (error: any) {
+        alert(`MP4 로드 실패: ${error.message}`);
+      } finally {
+        setIsLoadingM3u(false);
+      }
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -656,7 +692,7 @@ export default function App() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleUploadM3u} 
-                accept=".m3u,.m3u8" 
+                accept=".m3u,.m3u8,.mp4" 
                 style={{ display: 'none' }} 
               />
               
