@@ -593,6 +593,11 @@ export default function App() {
     initialDxRef.current = 0;
     initialDyRef.current = 0;
     pinchModeRef.current = 'all';
+    
+    // 손가락을 화면에서 때면 즉시 배율 조절 % 표시 창 제거
+    setZoomIndicator(prev => ({ ...prev, show: false }));
+    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+
     setTimeout(() => {
       setTouchIndicator(prev => ({ ...prev, show: false }));
     }, 1200);
