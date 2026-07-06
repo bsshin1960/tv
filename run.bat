@@ -34,7 +34,7 @@ if not exist node_modules (
 
 rem Start dev server in the background
 echo [INFO] Starting development server...
-start /b "" cmd /c npm run dev
+start /min "" cmd /c npm run dev
 
 rem Wait 3 seconds for server to initialize
 ping 127.0.0.1 -n 4 >nul
@@ -66,13 +66,5 @@ if defined CHROME_PATH start "" "%CHROME_PATH%" --app=http://localhost:5173/ --a
 if not defined CHROME_PATH start http://localhost:5173/
 
 echo.
-echo ===================================================
-echo   TV ON is running!
-echo   Minimize this window, do not close it.
-echo   Press Ctrl+C or close this window to stop server.
-echo ===================================================
-echo.
-
-:loop
-ping 127.0.0.1 -n 11 >nul
-goto loop
+echo [INFO] TV ON started successfully. Exiting launcher.
+exit

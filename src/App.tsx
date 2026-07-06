@@ -12,7 +12,7 @@ import { parseM3U } from './utils/m3uParser';
 export default function App() {
   // --- 상태 관리 ---
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [selectedCategory, setSelectedCategory] = useState<string>('지상파');
+  const [selectedCategory, setSelectedCategory] = useState<string>('M3U 방송');
   const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[0]);
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem('tv-bookmarks');
@@ -25,7 +25,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedM3uGroup, setSelectedM3uGroup] = useState<string>('전체');
   const [visibleCount, setVisibleCount] = useState<number>(60);
-  const [m3uFileName, setM3uFileName] = useState<string>('');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [inputFileName, setInputFileName] = useState<string>('');
   
   // 비디오 제어
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -95,6 +96,11 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, [activeChannel, reservedAlerts]);
+
+  // 시작 시 Korea(2).m3u 자동 로딩
+  useEffect(() => {
+    loadM3uFile('Korea(2).m3u');
+  }, []);
 
   // 2. 외부 영역 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -313,12 +319,11 @@ export default function App() {
     }, 1200);
   };
 
-  // 내장 M3U 파일 로드
-  const handleLoadPreloadedM3u = async () => {
+  // 내장 M3U 파일 공통 로드 함수
+  const loadM3uFile = async (fileName: string) => {
     setIsLoadingM3u(true);
-    setM3uFileName('World 2025.m3u');
     try {
-      const response = await fetch('/World 2025.m3u');
+      const response = await fetch(`/${fileName}`);
       if (!response.ok) {
         throw new Error('M3U 파일을 불러오는데 실패했습니다.');
       }
@@ -335,11 +340,55 @@ export default function App() {
       }
     } catch (error: any) {
       alert(`에러: ${error.message}`);
-      setM3uFileName('');
     } finally {
       setIsLoadingM3u(false);
     }
   };
+
+  // 사용자 지정 파일 불러오기 또는 기기 파일 탐색기 fallback
+  const handleLoadFromPublic = async () => {
+    if (!inputFileName.trim()) {
+      setIsUploadModalOpen(false);
+      fileInputRef.current?.click();
+      return;
+    }
+    
+    let targetFile = inputFileName.trim();
+    if (!targetFile.endsWith('.m3u') && !targetFile.endsWith('.m3u8')) {
+      targetFile += '.m3u';
+    }
+
+    setIsLoadingM3u(true);
+    try {
+      const response = await fetch(`/${targetFile}`);
+      if (!response.ok) {
+        throw new Error('파일이 public 폴더에 존재하지 않습니다.');
+      }
+      const text = await response.text();
+      const parsed = parseM3U(text);
+      setM3uChannels(parsed);
+      setSelectedCategory('M3U 방송');
+      setSelectedM3uGroup('전체');
+      setSearchQuery('');
+      setVisibleCount(60);
+      if (parsed.length > 0) {
+        setActiveChannel(parsed[0]);
+        setIsPlaying(true);
+      }
+      setIsUploadModalOpen(false);
+    } catch (error: any) {
+      alert(`[public 로드 실패] ${error.message}\n기기 내 폴더 탐색기를 엽니다.`);
+      setIsUploadModalOpen(false);
+      // Fallback: 기기 파일 탐색기 트리거
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
+    } finally {
+      setIsLoadingM3u(false);
+    }
+  };
+
+
 
   // 사용자 지정 M3U 파일 업로드
   const handleUploadM3u = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -347,7 +396,6 @@ export default function App() {
     if (!file) return;
 
     setIsLoadingM3u(true);
-    setM3uFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -364,7 +412,6 @@ export default function App() {
         }
       } catch (error: any) {
         alert(`M3U 파싱 실패: ${error.message}`);
-        setM3uFileName('');
       } finally {
         setIsLoadingM3u(false);
       }
@@ -372,7 +419,6 @@ export default function App() {
     reader.onerror = () => {
       alert('파일 읽기 에러가 발생했습니다.');
       setIsLoadingM3u(false);
-      setM3uFileName('');
     };
     reader.readAsText(file);
   };
@@ -478,7 +524,6 @@ export default function App() {
               <button 
                 onClick={() => setIsSubCategoryOpen(!isSubCategoryOpen)} 
                 className={`dropdown-trigger ${isSubCategoryOpen ? 'active' : ''}`}
-                style={{ borderColor: 'var(--brand-color)' }}
               >
                 <span>{activeChannel.category === '지상파' ? activeChannel.name.split(' ')[0] : '채널 선택'}</span>
                 <ChevronDown className="w-4 h-4" />
@@ -510,7 +555,6 @@ export default function App() {
               <button 
                 onClick={() => setIsSubCategoryOpen(!isSubCategoryOpen)} 
                 className={`dropdown-trigger ${isSubCategoryOpen ? 'active' : ''}`}
-                style={{ borderColor: 'var(--brand-color)' }}
               >
                 <span>{selectedM3uGroup}</span>
                 <ChevronDown className="w-4 h-4" />
@@ -539,15 +583,6 @@ export default function App() {
           {/* M3U 로드 / 업로드 버튼 추가 (그룹 선택 박스 오른쪽) */}
           {selectedCategory === 'M3U 방송' && (
             <div className="m3u-header-buttons" style={{ display: 'flex', gap: '8px', marginLeft: '10px', alignItems: 'center' }}>
-              <button 
-                onClick={handleLoadPreloadedM3u} 
-                disabled={isLoadingM3u}
-                className="m3u-btn primary-glow"
-                style={{ padding: '6px 12px', fontSize: '11px', height: '34px', lineHeight: '1' }}
-              >
-                {isLoadingM3u && m3uFileName === 'World 2025.m3u' ? '로딩 중...' : '기본 M3U 로드'}
-              </button>
-              
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -557,7 +592,7 @@ export default function App() {
               />
               
               <button 
-                onClick={() => fileInputRef.current?.click()} 
+                onClick={() => setIsUploadModalOpen(true)} 
                 disabled={isLoadingM3u}
                 className="m3u-btn outline"
                 style={{ padding: '6px 12px', fontSize: '11px', height: '34px', display: 'flex', alignItems: 'center', gap: '4px', lineHeight: '1' }}
@@ -765,6 +800,53 @@ export default function App() {
         </section>
 
       </main>
+
+      {/* M3U 파일 업로드 선택 모달 */}
+      {isUploadModalOpen && (
+        <div className="upload-modal-overlay">
+          <div className="upload-modal-box">
+            <h3 className="upload-modal-title">M3U 파일 불러오기</h3>
+            <p className="upload-modal-desc">
+              서버(public 폴더) 내의 M3U 파일명을 입력하세요.<br />
+              파일이 없거나 비워두면 기기의 탐색기 창이 열립니다.
+            </p>
+            <input 
+              type="text" 
+              placeholder="예: Korea(2).m3u" 
+              value={inputFileName}
+              onChange={(e) => setInputFileName(e.target.value)}
+              className="upload-modal-input"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleLoadFromPublic();
+              }}
+              autoFocus
+            />
+            <div className="upload-modal-buttons">
+              <button 
+                onClick={handleLoadFromPublic}
+                className="m3u-btn primary-glow"
+              >
+                불러오기
+              </button>
+              <button 
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                className="m3u-btn outline"
+              >
+                기기 파일 선택
+              </button>
+              <button 
+                onClick={() => setIsUploadModalOpen(false)}
+                className="m3u-btn text-only"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
