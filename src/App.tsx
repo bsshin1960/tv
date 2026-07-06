@@ -121,6 +121,9 @@ export default function App() {
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
+  const initialPinchDistanceRef = useRef<number>(0);
+  const initialScaleXRef = useRef<number>(1.0);
+  const initialScaleYRef = useRef<number>(1.0);
   
   // 드롭다운 외부 클릭 시 닫기용 Ref
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -458,43 +461,71 @@ export default function App() {
 
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartY.current = touch.clientY;
-    touchStartX.current = touch.clientX;
-    isDragging.current = true;
+    if (e.touches.length === 2) {
+      // 두 손가락 터치 시 핀치 줌 시작
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      initialPinchDistanceRef.current = dist;
+      initialScaleXRef.current = scaleX;
+      initialScaleYRef.current = scaleY;
+      isDragging.current = false; // 한 손가락 볼륨/밝기 이동 차단
+    } else if (e.touches.length === 1) {
+      // 한 손가락 터치 시 기존 밝기/볼륨 조절 시작
+      const touch = e.touches[0];
+      touchStartY.current = touch.clientY;
+      touchStartX.current = touch.clientX;
+      isDragging.current = true;
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging.current) return;
-    const touch = e.touches[0];
-    const deltaY = touchStartY.current - touch.clientY;
-    const container = playerContainerRef.current;
-    if (!container) return;
+    if (e.touches.length === 2) {
+      // 두 손가락 드래그 시 핀치 줌 적용
+      if (initialPinchDistanceRef.current === 0) return;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const factor = dist / initialPinchDistanceRef.current;
+      
+      const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
+      const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
+      setScaleX(newScaleX);
+      setScaleY(newScaleY);
+      showZoomFeedback(newScaleX, newScaleY);
+    } else if (e.touches.length === 1 && isDragging.current) {
+      // 한 손가락 드래그 시 볼륨/밝기 조절
+      const touch = e.touches[0];
+      const deltaY = touchStartY.current - touch.clientY;
+      const container = playerContainerRef.current;
+      if (!container) return;
 
-    const width = container.clientWidth;
-    const isLeftSide = touchStartX.current < width / 2;
+      const width = container.clientWidth;
+      const isLeftSide = touchStartX.current < width / 2;
 
-    if (isLeftSide) {
-      const change = deltaY / 300;
-      setBrightness(prev => {
-        const val = Math.min(1.5, Math.max(0.2, prev + change));
-        setTouchIndicator({ show: true, type: 'brightness', value: Math.round(val * 100) });
-        return val;
-      });
-    } else {
-      const change = deltaY / 300;
-      setVolume(prev => {
-        const val = Math.min(1.0, Math.max(0.0, prev + change));
-        setIsMuted(false);
-        setTouchIndicator({ show: true, type: 'volume', value: Math.round(val * 100) });
-        return val;
-      });
+      if (isLeftSide) {
+        const change = deltaY / 300;
+        setBrightness(prev => {
+          const val = Math.min(1.5, Math.max(0.2, prev + change));
+          setTouchIndicator({ show: true, type: 'brightness', value: Math.round(val * 100) });
+          return val;
+        });
+      } else {
+        const change = deltaY / 300;
+        setVolume(prev => {
+          const val = Math.min(1.0, Math.max(0.0, prev + change));
+          setIsMuted(false);
+          setTouchIndicator({ show: true, type: 'volume', value: Math.round(val * 100) });
+          return val;
+        });
+      }
+      touchStartY.current = touch.clientY;
     }
-    touchStartY.current = touch.clientY;
   };
 
   const handleTouchEnd = () => {
     isDragging.current = false;
+    initialPinchDistanceRef.current = 0;
     setTimeout(() => {
       setTouchIndicator(prev => ({ ...prev, show: false }));
     }, 1200);
