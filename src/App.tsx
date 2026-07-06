@@ -1109,6 +1109,12 @@ export default function App() {
         </div>
 
         <div className="header-right">
+          {/* 실행 URL 표시 */}
+          <span className="header-url">
+            <span className="header-url-dot"></span>
+            {window.location.href}
+          </span>
+
           {/* 아날로그-디지털 융합 시계 */}
           <span className="header-clock hidden-mobile">
             {currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

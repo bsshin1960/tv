@@ -62,7 +62,7 @@ if defined CHROME_PATH echo [INFO] Opening TV ON in Chrome App Mode [standalone]
 if not defined CHROME_PATH echo [WARNING] Google Chrome not found. Opening in default browser...
 
 rem Launch (flat single-line commands are 100% immune to parenthesis parsing bugs)
-if defined CHROME_PATH start "" "%CHROME_PATH%" --app=http://localhost:5173/ --autoplay-policy=no-user-gesture-required
+if defined CHROME_PATH start "" "%CHROME_PATH%" http://localhost:5173/ --autoplay-policy=no-user-gesture-required
 if not defined CHROME_PATH start http://localhost:5173/
 
 echo.
