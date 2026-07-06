@@ -24,6 +24,22 @@ const PRELOADED_FILES = [
   { name: 'Adult3.m3u', label: '성인 방송 목록 (Adult3)' },
   { name: '전체 방송(성인_0283)_index.nsfw.m3u', label: '성인 방송 목록 (NSFW 전체)' }
 ];
+
+const formatTime = (seconds: number) => {
+  if (isNaN(seconds) || !isFinite(seconds)) return '00:00';
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  const minsStr = mins.toString().padStart(2, '0');
+  const secsStr = secs.toString().padStart(2, '0');
+
+  if (hrs > 0) {
+    return `${hrs}:${minsStr}:${secsStr}`;
+  }
+  return `${minsStr}:${secsStr}`;
+};
+
 export default function App() {
   // --- 상태 관리 ---
   console.log("TV ON Reverted to 09b3e07 (Actions reset completed)");
@@ -78,6 +94,40 @@ export default function App() {
     value: 0
   });
   const [streamError, setStreamError] = useState<string | null>(null);
+
+  // 비디오 진행바 관련 상태
+  const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [isTouchActive, setIsTouchActive] = useState<boolean>(false);
+  const touchTimeoutRef = useRef<any>(null);
+
+  const refreshTouchActive = () => {
+    setIsTouchActive(true);
+    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    touchTimeoutRef.current = setTimeout(() => {
+      setIsTouchActive(false);
+    }, 3000);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    handleMouseUpOrLeave();
+  };
+
+  const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number(e.target.value);
+    setVideoCurrentTime(newTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    };
+  }, []);
 
   // 줌, 화면 회전 및 화면 이동 상태 관리
   const [scaleX, setScaleX] = useState<number>(1.0);
@@ -261,6 +311,8 @@ export default function App() {
     setScaleY(1.0);
     setRotation(0);
     setPanOffset({ x: 0, y: 0 });
+    setVideoCurrentTime(0);
+    setVideoDuration(0);
 
     if (isLoadingM3u) return;
 
@@ -529,6 +581,7 @@ export default function App() {
 
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
+    refreshTouchActive();
     triggerResetOverlay();
     if (e.touches.length === 2) {
       // 두 손가락 터치 시 핀치 줌 & 드래그 이동 시작
@@ -569,6 +622,7 @@ export default function App() {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    refreshTouchActive();
     if (e.touches.length === 2) {
       // 두 손가락 드래그 시 핀치 줌 & 화면 이동(Pan) 동시 적용
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -640,6 +694,7 @@ export default function App() {
   };
 
   const handleTouchEnd = () => {
+    refreshTouchActive();
     isDragging.current = false;
     initialPinchDistanceRef.current = 0;
     initialDxRef.current = 0;
@@ -1149,7 +1204,8 @@ export default function App() {
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
-              onMouseLeave={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseLeave}
+              onMouseEnter={() => setIsHovered(true)}
               className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${isMobileLandscape ? 'landscape-full' : ''}`}
             >
               <div 
@@ -1187,10 +1243,58 @@ export default function App() {
                         setIsPlaying(!isPlaying);
                       }
                     }}
+                    onTimeUpdate={(e) => {
+                      setVideoCurrentTime(e.currentTarget.currentTime);
+                    }}
+                    onLoadedMetadata={(e) => {
+                      setVideoDuration(e.currentTarget.duration);
+                    }}
+                    onDurationChange={(e) => {
+                      setVideoDuration(e.currentTarget.duration);
+                    }}
                     onError={() => setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)')}
                   ></video>
                 )}
               </div>
+
+              {/* 수평 스크롤바 (진행률 조절기) */}
+              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (
+                <div 
+                  className={`player-scrubber-container ${(isHovered || isTouchActive) ? 'visible' : ''}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onMouseMove={(e) => e.stopPropagation()}
+                  onMouseUp={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    setIsTouchActive(true);
+                    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+                  }}
+                  onTouchMove={(e) => {
+                    e.stopPropagation();
+                    setIsTouchActive(true);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                    refreshTouchActive();
+                  }}
+                >
+                  <span className="scrubber-time">{formatTime(videoCurrentTime)}</span>
+                  <input 
+                    type="range"
+                    min="0"
+                    max={videoDuration}
+                    step="0.1"
+                    value={videoCurrentTime}
+                    onChange={handleScrub}
+                    className="player-scrubber-slider"
+                    style={{
+                      background: `linear-gradient(to right, #ff3b30 0%, #ff3b30 ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) 100%)`
+                    }}
+                  />
+                  <span className="scrubber-time">{formatTime(videoDuration)}</span>
+                </div>
+              )}
 
               {/* 제스처 값 피드백 */}
               {touchIndicator.show && (
