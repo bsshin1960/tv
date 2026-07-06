@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, 
-  Sun, Moon, Heart, Download, 
+  Sun, Moon, Heart, 
   Minimize, ChevronDown, Search, Upload, X
 } from 'lucide-react';
 import Hls from 'hls.js';
@@ -70,7 +70,6 @@ export default function App() {
     const saved = localStorage.getItem('tv-alerts');
     return saved ? JSON.parse(saved) : [];
   });
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [touchIndicator, setTouchIndicator] = useState<{ show: boolean, type: 'volume' | 'brightness', value: number }>({
     show: false,
     type: 'volume',
@@ -233,16 +232,6 @@ export default function App() {
     localStorage.setItem('tv-bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // 8. PWA 이벤트 캡처
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -262,15 +251,6 @@ export default function App() {
         ? prev.filter(id => id !== channelId) 
         : [...prev, channelId]
     );
-  };
-
-  const handlePwaInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
   };
 
   const toggleFullscreen = () => {
@@ -699,13 +679,6 @@ export default function App() {
           <span className="header-clock hidden-mobile">
             {currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
-
-          {deferredPrompt && (
-            <button onClick={handlePwaInstall} className="dropdown-trigger hidden-mobile" style={{ borderColor: 'var(--brand-color)' }}>
-              <Download className="w-4 h-4 text-red-500" />
-              <span>앱 다운로드</span>
-            </button>
-          )}
 
           {/* 테마 버튼 */}
           <button 

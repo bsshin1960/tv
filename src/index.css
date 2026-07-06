@@ -1314,7 +1314,7 @@ body, html, #root {
 
 /* Sidebar Channel List Box */
 .player-sidebar-list {
-  width: 320px;
+  width: 224px; /* 320px에서 30% 축소 (224px) */
   flex-shrink: 0;
   background: #0c0f17;
   border-right: 1px solid var(--border-color);
