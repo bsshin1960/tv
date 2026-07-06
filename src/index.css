@@ -74,6 +74,37 @@
 .border-0 {
   border: 0 !important;
 }
+.visible-mobile {
+  display: none !important;
+}
+.hidden-mobile {
+  display: inline-block !important;
+}
+
+@media (max-width: 768px) {
+  .visible-mobile {
+    display: inline-block !important;
+  }
+  .hidden-mobile {
+    display: none !important;
+  }
+  
+  /* 모바일 화면 헤더 레이아웃 최적화 */
+  .header-left {
+    gap: 6px !important;
+  }
+  .dropdown-trigger {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+  .m3u-btn {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+  }
+}
 
 body, html, #root {
   width: 100%;
@@ -109,7 +140,7 @@ body, html, #root {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
 }
@@ -186,7 +217,7 @@ body, html, #root {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 15px 20px;
+  padding: 8px 20px 15px 20px;
   max-width: 100%;
   width: 100%;
   margin: 0;
@@ -258,6 +289,7 @@ body, html, #root {
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
+  white-space: nowrap;
 }
 
 .dropdown-trigger:hover, .dropdown-trigger.active {
@@ -342,6 +374,7 @@ body, html, #root {
   padding: 15px 25px;
   background-color: var(--bg-header);
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .controls-left, .controls-right {
@@ -727,25 +760,42 @@ body, html, #root {
 /* 반응형 모바일 오버레이 최적화 */
 @media (max-width: 768px) {
   .ott-header {
-    padding: 12px 15px;
+    padding: 8px 12px !important;
   }
   
   .logo-text {
-    font-size: 18px;
+    font-size: 16px !important;
   }
   
   .logo-icon {
-    width: 32px;
-    height: 32px;
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  /* 모바일용 업로드 및 다크모드 아이콘 크기 조정 (추가 30% 증대) */
+  .m3u-header-buttons .m3u-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .header-right .icon-btn svg {
+    width: 17px !important;
+    height: 17px !important;
   }
   
   .ott-main {
-    padding: 12px;
-    gap: 20px;
+    padding: 2px 12px 0px 12px !important;
+    gap: 8px !important;
+  }
+  .sidebar-search-box {
+    padding: 2px 12px 2px 12px !important;
+  }
+  .search-input {
+    padding: 6px 12px 6px 32px !important;
+    font-size: 13px !important;
   }
   
   .player-controls-row {
-    padding: 10px 15px;
+    padding: 6px 15px 0px 15px !important;
   }
   
   .epg-accordion-header {
@@ -828,6 +878,7 @@ body, html, #root {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .m3u-btn.primary-glow {
@@ -850,7 +901,7 @@ body, html, #root {
 .m3u-btn.outline {
   background: transparent;
   border-color: var(--border-color);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .m3u-btn.outline:hover {
@@ -1409,12 +1460,16 @@ body, html, #root {
     border-bottom: 1px solid var(--border-color);
   }
   .player-sidebar-list {
-    height: 200px;
+    height: 280px !important;
+    flex: none !important;
+    min-height: 0;
   }
   .player-wrapper {
     width: 100%;
     aspect-ratio: 16 / 9;
-    height: auto;
+    height: auto !important;
+    flex: none !important;
+    flex-shrink: 0 !important;
   }
 }
 
@@ -1459,6 +1514,23 @@ body, html, #root {
   color: var(--text-secondary);
   line-height: 1.6;
   margin: 0;
+}
+
+.upload-modal-select {
+  width: 100%;
+  background: #1c2333;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.upload-modal-select:focus {
+  border-color: var(--brand-color);
 }
 
 .upload-modal-input {
@@ -1509,4 +1581,102 @@ body, html, #root {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.ott-copyright-text {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  padding: 6px 12px !important;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  font-style: italic !important;
+  font-synthesis: style !important;
+}
+
+@media (max-width: 768px) {
+  .ott-copyright-text {
+    font-size: 10px !important;
+    padding: 4px 12px !important;
+  }
+}
+
+/* M3U Preset Custom Radio Button List */
+.preset-radio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #1c2333;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.preset-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  font-size: 10px !important;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.preset-radio-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.preset-radio-item.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--text-primary);
+}
+
+.preset-radio-input {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 0.2s, background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.preset-radio-input:checked {
+  border-color: var(--brand-color, #6366f1);
+  background-color: var(--brand-color, #6366f1);
+}
+
+.preset-radio-input:checked::after {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.preset-radio-text {
+  font-size: 10px !important;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.preset-radio-filename {
+  font-size: 9px !important;
+  color: var(--text-muted);
+  margin-left: 4px;
 }

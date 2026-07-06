@@ -5,15 +5,35 @@ import {
   Minimize, ChevronDown, Search, Upload, X
 } from 'lucide-react';
 import Hls from 'hls.js';
-import { CHANNELS, getCurrentProgram } from './data/channels';
+import { CHANNELS } from './data/channels';
 import type { Channel, Program } from './data/channels';
 import { parseM3U } from './utils/m3uParser';
-
+const PRELOADED_FILES = [
+  { name: 'Korea(2).m3u', label: '한국 방송 목록 (기본)' },
+  { name: 'Korea(1).m3u', label: '한국 방송 목록 (대체)' },
+  { name: '국가별_index.country.m3u', label: '국가별 방송 목록' },
+  { name: '언어별_index.language.m3u', label: '언어별 방송 목록' },
+  { name: '카테고리별_index.category.m3u', label: '카테고리별 방송 목록' },
+  { name: 'Adult(all).m3u', label: '성인 방송 목록 (전체)' },
+  { name: 'Adult(1).m3u', label: '성인 방송 목록 1' },
+  { name: 'Adult(2).m3u', label: '성인 방송 목록 2' },
+  { name: 'Adult(3).m3u', label: '성인 방송 목록 3' },
+  { name: 'Adult(4).m3u', label: '성인 방송 목록 4' },
+  { name: 'Adult(5).m3u', label: '성인 방송 목록 5' },
+  { name: 'Adult3.m3u', label: '성인 방송 목록 (Adult3)' },
+  { name: '전체 방송(성인_0283)_index.nsfw.m3u', label: '성인 방송 목록 (NSFW 전체)' }
+];
 export default function App() {
   // --- 상태 관리 ---
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [selectedCategory, setSelectedCategory] = useState<string>('M3U 방송');
-  const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[0]);
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    return localStorage.getItem('tv-last-active-channel-category') || 'M3U 방송';
+  });
+  const [activeChannel, setActiveChannel] = useState<Channel>(() => {
+    const savedChannelId = localStorage.getItem('tv-last-active-channel-id');
+    const found = CHANNELS.find(ch => ch.id === savedChannelId);
+    return found || CHANNELS[0];
+  });
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem('tv-bookmarks');
     return saved ? JSON.parse(saved) : [];
@@ -27,6 +47,10 @@ export default function App() {
   const [visibleCount, setVisibleCount] = useState<number>(60);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [inputFileName, setInputFileName] = useState<string>('');
+  const [selectedPresetFile, setSelectedPresetFile] = useState<string>(() => {
+    return localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+  });
+  const [isCustomInput, setIsCustomInput] = useState<boolean>(false);
   
   // 비디오 제어
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -41,11 +65,7 @@ export default function App() {
   
   // 예약 알림 및 타이머
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [epgProgressInfo, setEpgProgressInfo] = useState<{
-    program: Program;
-    progress: number;
-    nextProgram: Program | null;
-  }>(() => getCurrentProgram(CHANNELS[0]));
+
   const [reservedAlerts, setReservedAlerts] = useState<{channelId: string, channelName: string, program: Program}[]>(() => {
     const saved = localStorage.getItem('tv-alerts');
     return saved ? JSON.parse(saved) : [];
@@ -77,7 +97,7 @@ export default function App() {
     const interval = setInterval(() => {
       const now = new Date();
       setCurrentTime(now);
-      setEpgProgressInfo(getCurrentProgram(activeChannel));
+
       
 
 
@@ -97,10 +117,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeChannel, reservedAlerts]);
 
-  // 시작 시 Korea(2).m3u 자동 로딩
+  // 시작 시 이전에 선택한 M3U 파일 자동 로딩
   useEffect(() => {
-    loadM3uFile('Korea(2).m3u');
+    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+    loadM3uFile(savedPreset);
   }, []);
+
+  // 마지막 시청 채널 및 카테고리 상태 저장
+  useEffect(() => {
+    if (activeChannel && activeChannel.id) {
+      localStorage.setItem('tv-last-active-channel-id', activeChannel.id);
+      localStorage.setItem('tv-last-active-channel-category', selectedCategory);
+    }
+  }, [activeChannel, selectedCategory]);
 
   // 2. 외부 영역 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -169,7 +198,6 @@ export default function App() {
       video.load();
       if (isPlaying) video.play().catch(() => setIsPlaying(false));
     }
-    setEpgProgressInfo(getCurrentProgram(activeChannel));
   }, [activeChannel]);
 
   // 4. 비디오 재생/정지 제어
@@ -334,8 +362,24 @@ export default function App() {
       setSelectedM3uGroup('전체');
       setSearchQuery('');
       setVisibleCount(60);
+
+      setSelectedPresetFile(fileName);
+      localStorage.setItem('tv-selected-preset', fileName);
+
       if (parsed.length > 0) {
-        setActiveChannel(parsed[0]);
+        const savedChannelId = localStorage.getItem('tv-last-active-channel-id');
+        const allLoadedChannels = [...CHANNELS, ...parsed];
+        const lastActive = allLoadedChannels.find(ch => ch.id === savedChannelId);
+        
+        if (lastActive) {
+          setActiveChannel(lastActive);
+          const savedCategory = localStorage.getItem('tv-last-active-channel-category');
+          if (savedCategory) {
+            setSelectedCategory(savedCategory);
+          }
+        } else {
+          setActiveChannel(parsed[0]);
+        }
         setIsPlaying(true);
       }
     } catch (error: any) {
@@ -371,8 +415,24 @@ export default function App() {
       setSelectedM3uGroup('전체');
       setSearchQuery('');
       setVisibleCount(60);
+
+      setSelectedPresetFile(targetFile);
+      localStorage.setItem('tv-selected-preset', targetFile);
+
       if (parsed.length > 0) {
-        setActiveChannel(parsed[0]);
+        const savedChannelId = localStorage.getItem('tv-last-active-channel-id');
+        const allLoadedChannels = [...CHANNELS, ...parsed];
+        const lastActive = allLoadedChannels.find(ch => ch.id === savedChannelId);
+        
+        if (lastActive) {
+          setActiveChannel(lastActive);
+          const savedCategory = localStorage.getItem('tv-last-active-channel-category');
+          if (savedCategory) {
+            setSelectedCategory(savedCategory);
+          }
+        } else {
+          setActiveChannel(parsed[0]);
+        }
         setIsPlaying(true);
       }
       setIsUploadModalOpen(false);
@@ -388,7 +448,36 @@ export default function App() {
     }
   };
 
+  const handleUploadClick = () => {
+    setIsUploadModalOpen(true);
+    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+    
+    // 저장된 프리셋이 내장 프리셋인지 여부 확인
+    const isPresetExist = PRELOADED_FILES.some(f => f.name === savedPreset);
+    if (isPresetExist) {
+      setSelectedPresetFile(savedPreset);
+      setInputFileName(savedPreset);
+      setIsCustomInput(false);
+    } else {
+      setSelectedPresetFile('custom');
+      setInputFileName(savedPreset);
+      setIsCustomInput(true);
+    }
+  };
 
+  const handlePresetSelect = (fileName: string) => {
+    setSelectedPresetFile(fileName);
+    if (fileName === 'custom') {
+      setIsCustomInput(true);
+      setInputFileName('');
+    } else {
+      setIsCustomInput(false);
+      setInputFileName(fileName);
+      loadM3uFile(fileName).then(() => {
+        setIsUploadModalOpen(false);
+      });
+    }
+  };
 
   // 사용자 지정 M3U 파일 업로드
   const handleUploadM3u = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -495,7 +584,7 @@ export default function App() {
               onClick={() => setIsCategoryOpen(!isCategoryOpen)} 
               className={`dropdown-trigger ${isCategoryOpen ? 'active' : ''}`}
             >
-              <span>{selectedCategory} 방송 목록</span>
+              <span>{selectedCategory}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
             {isCategoryOpen && (
@@ -592,13 +681,14 @@ export default function App() {
               />
               
               <button 
-                onClick={() => setIsUploadModalOpen(true)} 
+                onClick={handleUploadClick} 
                 disabled={isLoadingM3u}
                 className="m3u-btn outline"
-                style={{ padding: '6px 12px', fontSize: '11px', height: '34px', display: 'flex', alignItems: 'center', gap: '4px', lineHeight: '1' }}
+                style={{ padding: '6px 12px', fontSize: '13px', height: '34px', display: 'flex', alignItems: 'center', gap: '12px', lineHeight: '1', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
+                <span className="hidden-mobile">M3U 파일 업로드</span>
+                <span className="visible-mobile">업로드</span>
                 <Upload className="w-3.5 h-3.5" />
-                <span>M3U 파일 업로드</span>
               </button>
             </div>
           )}
@@ -606,7 +696,7 @@ export default function App() {
 
         <div className="header-right">
           {/* 아날로그-디지털 융합 시계 */}
-          <span className="header-clock">
+          <span className="header-clock hidden-mobile">
             {currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
 
@@ -750,14 +840,14 @@ export default function App() {
             <div className="controls-left">
               {activeChannel.streamType !== 'youtube' && (
                 <button onClick={() => setIsPlaying(!isPlaying)} className="play-pause-btn">
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                  {isPlaying ? <Pause size={21} className="fill-current" /> : <Play size={21} className="fill-current" />}
                 </button>
               )}
 
               {/* 볼륨 슬라이더 */}
               <div className="volume-control-box">
                 <button onClick={() => setIsMuted(!isMuted)} className="icon-btn">
-                  {isMuted || volume === 0 ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4" />}
+                  {isMuted || volume === 0 ? <VolumeX size={18} className="text-red-500" /> : <Volume2 size={18} />}
                 </button>
                 <input 
                   type="range"
@@ -773,11 +863,6 @@ export default function App() {
                 />
               </div>
 
-              {/* 시청 등급 라벨 */}
-              <span className="ott-badge" style={{ position: 'static', transform: 'none' }}>
-                {epgProgressInfo.program.rating === 'ALL' ? '전체관람가' : `${epgProgressInfo.program.rating}세 이상`}
-              </span>
-
               {/* 즐겨찾기 버튼 */}
               <button 
                 onClick={(e) => toggleBookmark(activeChannel.id, e)} 
@@ -785,14 +870,14 @@ export default function App() {
                 style={{ marginLeft: '10px' }}
                 title="즐겨찾기 추가/해제"
               >
-                <Heart className={`w-4 h-4 ${bookmarks.includes(activeChannel.id) ? 'fill-red-600 text-red-600' : 'text-red-500'}`} />
+                <Heart size={18} className={bookmarks.includes(activeChannel.id) ? 'fill-red-600 text-red-600' : 'text-red-500'} />
               </button>
             </div>
 
             <div className="controls-right">
               {/* 전체화면 버튼 */}
               <button onClick={toggleFullscreen} className="icon-btn">
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
               </button>
             </div>
           </div>
@@ -807,27 +892,79 @@ export default function App() {
           <div className="upload-modal-box">
             <h3 className="upload-modal-title">M3U 파일 불러오기</h3>
             <p className="upload-modal-desc">
-              서버(public 폴더) 내의 M3U 파일명을 입력하세요.<br />
-              파일이 없거나 비워두면 기기의 탐색기 창이 열립니다.
+              내장 목록(서버)을 선택하여 불러오거나,<br />
+              원하시는 다른 파일이 있을 경우 직접 기기 파일을 선택할 수 있습니다.
             </p>
-            <input 
-              type="text" 
-              placeholder="예: Korea(2).m3u" 
-              value={inputFileName}
-              onChange={(e) => setInputFileName(e.target.value)}
-              className="upload-modal-input"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleLoadFromPublic();
-              }}
-              autoFocus
-            />
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'bold' }}>내장 목록 파일 선택</span>
+              <div className="preset-radio-list">
+                {PRELOADED_FILES.map((f) => {
+                  const isSelected = selectedPresetFile === f.name && !isCustomInput;
+                  return (
+                    <label 
+                      key={f.name} 
+                      className={`preset-radio-item ${isSelected ? 'active' : ''}`}
+                    >
+                      <input 
+                        type="radio" 
+                        name="presetM3u" 
+                        value={f.name} 
+                        checked={isSelected}
+                        onChange={() => handlePresetSelect(f.name)}
+                        className="preset-radio-input"
+                      />
+                      <span className="preset-radio-text">
+                        {f.label} <span className="preset-radio-filename">({f.name})</span>
+                      </span>
+                    </label>
+                  );
+                })}
+                <label className={`preset-radio-item ${isCustomInput ? 'active' : ''}`}>
+                  <input 
+                    type="radio" 
+                    name="presetM3u" 
+                    value="custom" 
+                    checked={isCustomInput}
+                    onChange={() => {
+                      setIsCustomInput(true);
+                      setSelectedPresetFile('custom');
+                    }}
+                    className="preset-radio-input"
+                  />
+                  <span className="preset-radio-text">직접 파일명 입력...</span>
+                </label>
+              </div>
+            </div>
+
+            {isCustomInput && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'bold' }}>서버 내 파일명 직접 입력</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="예: Korea(2).m3u" 
+                    value={inputFileName}
+                    onChange={(e) => setInputFileName(e.target.value)}
+                    className="upload-modal-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleLoadFromPublic();
+                    }}
+                    autoFocus
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    onClick={handleLoadFromPublic}
+                    className="m3u-btn primary-glow"
+                    style={{ padding: '0 16px', height: '38px', whiteSpace: 'nowrap' }}
+                  >
+                    입력 완료
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="upload-modal-buttons">
-              <button 
-                onClick={handleLoadFromPublic}
-                className="m3u-btn primary-glow"
-              >
-                불러오기
-              </button>
               <button 
                 onClick={() => {
                   setIsUploadModalOpen(false);
@@ -847,6 +984,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 투명 저작권 표시 (맨 아래 배치) */}
+      <div className="ott-copyright-text">
+        <i>Copyright @ 2026 Shinbosung All Right Reserved.</i>
+      </div>
 
     </div>
   );
