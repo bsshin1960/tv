@@ -101,6 +101,7 @@ export default function App() {
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isTouchActive, setIsTouchActive] = useState<boolean>(false);
   const touchTimeoutRef = useRef<any>(null);
+  const mouseTimeoutRef = useRef<any>(null);
 
   const refreshTouchActive = () => {
     setIsTouchActive(true);
@@ -110,8 +111,17 @@ export default function App() {
     }, 3000);
   };
 
+  const refreshMouseHover = () => {
+    setIsHovered(true);
+    if (mouseTimeoutRef.current) clearTimeout(mouseTimeoutRef.current);
+    mouseTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 3000);
+  };
+
   const handleMouseLeave = () => {
     setIsHovered(false);
+    if (mouseTimeoutRef.current) clearTimeout(mouseTimeoutRef.current);
     handleMouseUpOrLeave();
   };
 
@@ -126,6 +136,7 @@ export default function App() {
   useEffect(() => {
     return () => {
       if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+      if (mouseTimeoutRef.current) clearTimeout(mouseTimeoutRef.current);
     };
   }, []);
 
@@ -728,6 +739,7 @@ export default function App() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    refreshMouseHover();
     if (!isMouseDraggingRef.current) return;
 
     const deltaX = e.clientX - mouseStartPosRef.current.x;
@@ -1211,7 +1223,7 @@ export default function App() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseLeave}
-              onMouseEnter={() => setIsHovered(true)}
+              onMouseEnter={refreshMouseHover}
               className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${isMobileLandscape ? 'landscape-full' : ''}`}
             >
               <div 
@@ -1268,9 +1280,18 @@ export default function App() {
                 <div 
                   className={`player-scrubber-container ${(isHovered || isTouchActive) ? 'visible' : ''}`}
                   onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onMouseMove={(e) => e.stopPropagation()}
-                  onMouseUp={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    refreshMouseHover();
+                  }}
+                  onMouseMove={(e) => {
+                    e.stopPropagation();
+                    refreshMouseHover();
+                  }}
+                  onMouseUp={(e) => {
+                    e.stopPropagation();
+                    refreshMouseHover();
+                  }}
                   onTouchStart={(e) => {
                     e.stopPropagation();
                     setIsTouchActive(true);
