@@ -100,18 +100,10 @@ export default function App() {
     const valY = Math.round(sY * 100);
     const text = valX === valY ? `${valX}%` : `좌우 ${valX}% / 상하 ${valY}%`;
     setZoomIndicator({ show: true, text });
-    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
-    zoomTimeoutRef.current = setTimeout(() => {
-      setZoomIndicator(prev => ({ ...prev, show: false }));
-    }, 1000);
   };
 
   const showRotationFeedback = (deg: number) => {
     setZoomIndicator({ show: true, text: `회전 ${deg}°` });
-    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
-    zoomTimeoutRef.current = setTimeout(() => {
-      setZoomIndicator(prev => ({ ...prev, show: false }));
-    }, 1000);
   };
 
   // 화면 배율 초기화 플로팅 버튼 상태 및 트리거
@@ -148,6 +140,17 @@ export default function App() {
 
   // --- 이펙트 ---
   
+  // 화면 배율/회전 피드백 표시 자동 숨김 이펙트
+  useEffect(() => {
+    if (!zoomIndicator.show) return;
+
+    const timer = setTimeout(() => {
+      setZoomIndicator(prev => ({ ...prev, show: false }));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [zoomIndicator.show, zoomIndicator.text]);
+
   // 1. 실시간 시계 & 타이머 & 예약 알림 체크
   useEffect(() => {
     const interval = setInterval(() => {
