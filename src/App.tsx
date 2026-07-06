@@ -41,7 +41,7 @@ export default function App() {
   
   // M3U 상태 관리
   const [m3uChannels, setM3uChannels] = useState<Channel[]>([]);
-  const [isLoadingM3u, setIsLoadingM3u] = useState<boolean>(false);
+  const [isLoadingM3u, setIsLoadingM3u] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedM3uGroup, setSelectedM3uGroup] = useState<string>('전체');
   const [visibleCount, setVisibleCount] = useState<number>(60);
@@ -146,6 +146,8 @@ export default function App() {
 
   // 3. 비디오 채널 스트림 전환
   useEffect(() => {
+    if (isLoadingM3u) return;
+
     if (activeChannel.streamType === 'youtube') {
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -197,7 +199,7 @@ export default function App() {
       video.load();
       if (isPlaying) video.play().catch(() => setIsPlaying(false));
     }
-  }, [activeChannel]);
+  }, [activeChannel, isLoadingM3u]);
 
   // 4. 비디오 재생/정지 제어
   useEffect(() => {
