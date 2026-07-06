@@ -88,6 +88,13 @@ export default function App() {
   });
   const zoomTimeoutRef = useRef<any>(null);
 
+  // 마우스 드래그를 통한 화면 이동 상태
+  const [isMouseDragging, setIsMouseDragging] = useState<boolean>(false);
+  const isMouseDraggingRef = useRef<boolean>(false);
+  const mouseStartPosRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const initialPanOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const draggedRef = useRef<boolean>(false);
+
   const showZoomFeedback = (sX: number, sY: number) => {
     const valX = Math.round(sX * 100);
     const valY = Math.round(sY * 100);
@@ -491,6 +498,45 @@ export default function App() {
     setTimeout(() => {
       setTouchIndicator(prev => ({ ...prev, show: false }));
     }, 1200);
+  };
+
+  // 마우스 드래그를 통한 화면 이동
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('.player-controls-row')) {
+      return;
+    }
+
+    isMouseDraggingRef.current = true;
+    setIsMouseDragging(true);
+    draggedRef.current = false;
+    mouseStartPosRef.current = { x: e.clientX, y: e.clientY };
+    initialPanOffsetRef.current = { x: panOffset.x, y: panOffset.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isMouseDraggingRef.current) return;
+
+    const deltaX = e.clientX - mouseStartPosRef.current.x;
+    const deltaY = e.clientY - mouseStartPosRef.current.y;
+    
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      draggedRef.current = true;
+    }
+
+    setPanOffset({
+      x: initialPanOffsetRef.current.x + deltaX,
+      y: initialPanOffsetRef.current.y + deltaY
+    });
+  };
+
+  const handleMouseUpOrLeave = () => {
+    if (isMouseDraggingRef.current) {
+      isMouseDraggingRef.current = false;
+      setIsMouseDragging(false);
+    }
   };
 
   // 내장 M3U 파일 공통 로드 함수
@@ -944,7 +990,11 @@ export default function App() {
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="player-wrapper"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
+              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''}`}
             >
               <div 
                 style={{ 
@@ -972,7 +1022,15 @@ export default function App() {
                     autoPlay
                     controls={false}
                     className="video-element"
-                    onClick={() => setIsPlaying(!isPlaying)}
+                    onClick={(e) => {
+                      if (draggedRef.current) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        draggedRef.current = false;
+                      } else {
+                        setIsPlaying(!isPlaying);
+                      }
+                    }}
                     onError={() => setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)')}
                   ></video>
                 )}

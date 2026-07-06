@@ -251,6 +251,11 @@ body, html, #root {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+}
+
+.player-wrapper.grabbing {
+  cursor: grabbing;
 }
 
 .player-wrapper:fullscreen {
