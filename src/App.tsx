@@ -571,6 +571,22 @@ export default function App() {
     }
   };
 
+  const lastTapRef = useRef<number>(0);
+  const handleVideoTouchStart = (e: React.TouchEvent<HTMLVideoElement>) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      e.preventDefault();
+      toggleFullscreen();
+    }
+    lastTapRef.current = now;
+  };
+
+  const handleVideoDoubleClick = (e: React.MouseEvent<HTMLVideoElement>) => {
+    e.preventDefault();
+    toggleFullscreen();
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -1264,6 +1280,8 @@ export default function App() {
                         setIsPlaying(!isPlaying);
                       }
                     }}
+                    onDoubleClick={handleVideoDoubleClick}
+                    onTouchStart={handleVideoTouchStart}
                     onTimeUpdate={(e) => {
                       if (!isScrubbingRef.current) {
                         setVideoCurrentTime(e.currentTarget.currentTime);
