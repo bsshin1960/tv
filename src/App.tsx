@@ -8,6 +8,7 @@ import Hls from 'hls.js';
 import { CHANNELS } from './data/channels';
 import type { Channel, Program } from './data/channels';
 import { parseM3U } from './utils/m3uParser';
+// Reverted to clean 09b3e07 state (No custom bottom-sheet)
 const PRELOADED_FILES = [
   { name: 'Korea(2).m3u', label: '한국 방송 목록 (기본)' },
   { name: 'Korea(1).m3u', label: '한국 방송 목록 (대체)' },
@@ -25,6 +26,7 @@ const PRELOADED_FILES = [
 ];
 export default function App() {
   // --- 상태 관리 ---
+  console.log("TV ON Reverted to 09b3e07 (Actions reset completed)");
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedCategory, setSelectedCategory] = useState<string>(() => {
     return localStorage.getItem('tv-last-active-channel-category') || 'M3U 방송';
