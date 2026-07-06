@@ -77,9 +77,10 @@ export default function App() {
   });
   const [streamError, setStreamError] = useState<string | null>(null);
 
-  // 줌 및 화면 이동 상태 관리
+  // 줌, 화면 회전 및 화면 이동 상태 관리
   const [scaleX, setScaleX] = useState<number>(1.0);
   const [scaleY, setScaleY] = useState<number>(1.0);
+  const [rotation, setRotation] = useState<number>(0);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoomIndicator, setZoomIndicator] = useState<{ show: boolean, text: string }>({
     show: false,
@@ -92,6 +93,14 @@ export default function App() {
     const valY = Math.round(sY * 100);
     const text = valX === valY ? `${valX}%` : `좌우 ${valX}% / 상하 ${valY}%`;
     setZoomIndicator({ show: true, text });
+    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+    zoomTimeoutRef.current = setTimeout(() => {
+      setZoomIndicator(prev => ({ ...prev, show: false }));
+    }, 1000);
+  };
+
+  const showRotationFeedback = (deg: number) => {
+    setZoomIndicator({ show: true, text: `회전 ${deg}°` });
     if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     zoomTimeoutRef.current = setTimeout(() => {
       setZoomIndicator(prev => ({ ...prev, show: false }));
@@ -171,6 +180,7 @@ export default function App() {
     setStreamError(null);
     setScaleX(1.0);
     setScaleY(1.0);
+    setRotation(0);
     setPanOffset({ x: 0, y: 0 });
 
     if (isLoadingM3u) return;
@@ -328,6 +338,7 @@ export default function App() {
         e.preventDefault();
         setScaleX(1.0);
         setScaleY(1.0);
+        setRotation(0);
         setPanOffset({ x: 0, y: 0 });
         showZoomFeedback(1.0, 1.0);
       } 
@@ -371,6 +382,13 @@ export default function App() {
         setScaleX(newX);
         showZoomFeedback(newX, scaleY);
       }
+      // Rotation key: 5
+      else if (e.key === '5') {
+        e.preventDefault();
+        const newRotation = (rotation + 90) % 360;
+        setRotation(newRotation);
+        showRotationFeedback(newRotation);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -378,7 +396,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
-  }, [scaleX, scaleY]);
+  }, [scaleX, scaleY, rotation]);
 
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
@@ -933,7 +951,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   filter: `brightness(${brightness})`,
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scaleX}, ${scaleY})`,
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out'
                 }}
