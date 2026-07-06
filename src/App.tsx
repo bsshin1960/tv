@@ -701,9 +701,9 @@ export default function App() {
           </span>
 
           {deferredPrompt && (
-            <button onClick={handlePwaInstall} className="dropdown-trigger" style={{ borderColor: 'var(--brand-color)' }}>
+            <button onClick={handlePwaInstall} className="dropdown-trigger hidden-mobile" style={{ borderColor: 'var(--brand-color)' }}>
               <Download className="w-4 h-4 text-red-500" />
-              <span className="hidden sm:inline">앱 다운로드</span>
+              <span>앱 다운로드</span>
             </button>
           )}
 

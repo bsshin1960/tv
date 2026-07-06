@@ -757,8 +757,20 @@ body, html, #root {
   font-family: 'Outfit', sans-serif;
 }
 
+/* 반응형 유틸리티 클래스 */
+.visible-mobile {
+  display: none !important;
+}
+
 /* 반응형 모바일 오버레이 최적화 */
 @media (max-width: 768px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+  .visible-mobile {
+    display: inline-block !important;
+  }
+
   .ott-header {
     padding: 8px 12px !important;
   }
