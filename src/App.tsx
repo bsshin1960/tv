@@ -289,23 +289,18 @@ export default function App() {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.05 : -0.05;
-      
-      setScaleX(prevX => {
-        const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
-        setScaleY(prevY => {
-          const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
-          showZoomFeedback(newX, newY);
-          return newY;
-        });
-        return newX;
-      });
+      const newX = Math.min(3.0, Math.max(0.5, scaleX + delta));
+      const newY = Math.min(3.0, Math.max(0.5, scaleY + delta));
+      setScaleX(newX);
+      setScaleY(newY);
+      showZoomFeedback(newX, newY);
     };
 
     playerWrapper.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       playerWrapper.removeEventListener('wheel', handleWheel);
     };
-  }, [isLoadingM3u]);
+  }, [scaleX, scaleY, isLoadingM3u]);
 
   // 9. 키보드 단축키를 통한 화면 확대/축소 및 방향키를 통한 화면 이동
   useEffect(() => {
@@ -314,31 +309,21 @@ export default function App() {
         return;
       }
 
-      // Symmetrical zoom ( + / - / 0 / r )
+      // 대칭 줌 ( + / - / 0 / r )
       if (e.key === '+' || e.key === '=' || e.key === 'Add') {
         e.preventDefault();
-        const delta = 0.05;
-        setScaleX(prevX => {
-          const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
-          setScaleY(prevY => {
-            const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
-            showZoomFeedback(newX, newY);
-            return newY;
-          });
-          return newX;
-        });
+        const newX = Math.min(3.0, Math.max(0.5, scaleX + 0.05));
+        const newY = Math.min(3.0, Math.max(0.5, scaleY + 0.05));
+        setScaleX(newX);
+        setScaleY(newY);
+        showZoomFeedback(newX, newY);
       } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
         e.preventDefault();
-        const delta = -0.05;
-        setScaleX(prevX => {
-          const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
-          setScaleY(prevY => {
-            const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
-            showZoomFeedback(newX, newY);
-            return newY;
-          });
-          return newX;
-        });
+        const newX = Math.min(3.0, Math.max(0.5, scaleX - 0.05));
+        const newY = Math.min(3.0, Math.max(0.5, scaleY - 0.05));
+        setScaleX(newX);
+        setScaleY(newY);
+        showZoomFeedback(newX, newY);
       } else if (e.key === '0' || e.key === 'r') {
         e.preventDefault();
         setScaleX(1.0);
@@ -364,47 +349,27 @@ export default function App() {
       else if (e.key === '8') {
         // 8번: 상하 확대 (Y stretch)
         e.preventDefault();
-        setScaleY(prevY => {
-          const newY = Math.min(3.0, prevY + 0.05);
-          setScaleX(prevX => {
-            showZoomFeedback(prevX, newY);
-            return prevX;
-          });
-          return newY;
-        });
+        const newY = Math.min(3.0, scaleY + 0.05);
+        setScaleY(newY);
+        showZoomFeedback(scaleX, newY);
       } else if (e.key === '2') {
         // 2번: 상하 축소 (Y squish)
         e.preventDefault();
-        setScaleY(prevY => {
-          const newY = Math.max(0.5, prevY - 0.05);
-          setScaleX(prevX => {
-            showZoomFeedback(prevX, newY);
-            return prevX;
-          });
-          return newY;
-        });
+        const newY = Math.max(0.5, scaleY - 0.05);
+        setScaleY(newY);
+        showZoomFeedback(scaleX, newY);
       } else if (e.key === '4') {
         // 4번: 좌우 확대 (X stretch)
         e.preventDefault();
-        setScaleX(prevX => {
-          const newX = Math.min(3.0, prevX + 0.05);
-          setScaleY(prevY => {
-            showZoomFeedback(newX, prevY);
-            return prevY;
-          });
-          return newX;
-        });
+        const newX = Math.min(3.0, scaleX + 0.05);
+        setScaleX(newX);
+        showZoomFeedback(newX, scaleY);
       } else if (e.key === '6') {
         // 6번: 좌우 축소 (X squish)
         e.preventDefault();
-        setScaleX(prevX => {
-          const newX = Math.max(0.5, prevX - 0.05);
-          setScaleY(prevY => {
-            showZoomFeedback(newX, prevY);
-            return prevY;
-          });
-          return newX;
-        });
+        const newX = Math.max(0.5, scaleX - 0.05);
+        setScaleX(newX);
+        showZoomFeedback(newX, scaleY);
       }
     };
 
@@ -413,7 +378,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
-  }, []);
+  }, [scaleX, scaleY]);
 
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
