@@ -420,7 +420,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
   }, [scaleX, scaleY, rotation]);
 
