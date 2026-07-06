@@ -273,26 +273,24 @@ export default function App() {
     localStorage.setItem('tv-bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // 8. 마우스 휠 스크롤을 통한 화면 40% ~ 200% 확대/축소
+  // 8. 마우스 휠 스크롤을 통한 화면 50% ~ 200% 확대/축소
   useEffect(() => {
     const playerWrapper = playerContainerRef.current;
     if (!playerWrapper) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      setZoomLevel(prev => {
-        const delta = e.deltaY < 0 ? 0.05 : -0.05;
-        const newZoom = Math.min(2.0, Math.max(0.4, prev + delta));
-        showZoomFeedback(newZoom);
-        return newZoom;
-      });
+      const delta = e.deltaY < 0 ? 0.05 : -0.05;
+      const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
+      setZoomLevel(newZoom);
+      showZoomFeedback(newZoom);
     };
 
     playerWrapper.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       playerWrapper.removeEventListener('wheel', handleWheel);
     };
-  }, [isLoadingM3u]);
+  }, [zoomLevel, isLoadingM3u]);
 
   // 9. 키보드 + / - 키를 통한 화면 확대/축소
   useEffect(() => {
@@ -303,18 +301,14 @@ export default function App() {
 
       if (e.key === '+' || e.key === '=' || e.key === 'Add') {
         e.preventDefault();
-        setZoomLevel(prev => {
-          const newZoom = Math.min(2.0, prev + 0.05);
-          showZoomFeedback(newZoom);
-          return newZoom;
-        });
+        const newZoom = Math.min(2.0, zoomLevel + 0.05);
+        setZoomLevel(newZoom);
+        showZoomFeedback(newZoom);
       } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
         e.preventDefault();
-        setZoomLevel(prev => {
-          const newZoom = Math.max(0.4, prev - 0.05);
-          showZoomFeedback(newZoom);
-          return newZoom;
-        });
+        const newZoom = Math.max(0.5, zoomLevel - 0.05);
+        setZoomLevel(newZoom);
+        showZoomFeedback(newZoom);
       } else if (e.key === '0' || e.key === 'r') {
         e.preventDefault();
         setZoomLevel(1.0);
@@ -327,7 +321,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
-  }, []);
+  }, [zoomLevel]);
 
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
