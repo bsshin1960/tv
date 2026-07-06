@@ -124,6 +124,7 @@ export default function App() {
   const initialPinchDistanceRef = useRef<number>(0);
   const initialScaleXRef = useRef<number>(1.0);
   const initialScaleYRef = useRef<number>(1.0);
+  const touchStartMidpointRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   
   // 드롭다운 외부 클릭 시 닫기용 Ref
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -462,13 +463,20 @@ export default function App() {
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      // 두 손가락 터치 시 핀치 줌 시작
+      // 두 손가락 터치 시 핀치 줌 & 드래그 이동 시작
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       initialPinchDistanceRef.current = dist;
       initialScaleXRef.current = scaleX;
       initialScaleYRef.current = scaleY;
+
+      // 두 손가락 중간점 좌표 기록
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      touchStartMidpointRef.current = { x: midX, y: midY };
+      initialPanOffsetRef.current = { x: panOffset.x, y: panOffset.y };
+
       isDragging.current = false; // 한 손가락 볼륨/밝기 이동 차단
     } else if (e.touches.length === 1) {
       // 한 손가락 터치 시 기존 밝기/볼륨 조절 시작
@@ -481,7 +489,7 @@ export default function App() {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      // 두 손가락 드래그 시 핀치 줌 적용
+      // 두 손가락 드래그 시 핀치 줌 & 화면 이동(Pan) 동시 적용
       if (initialPinchDistanceRef.current === 0) return;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -493,6 +501,16 @@ export default function App() {
       setScaleX(newScaleX);
       setScaleY(newScaleY);
       showZoomFeedback(newScaleX, newScaleY);
+
+      // 중심점 변화량을 바탕으로 화면 이동(Pan) 좌표 업데이트
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const deltaX = midX - touchStartMidpointRef.current.x;
+      const deltaY = midY - touchStartMidpointRef.current.y;
+      setPanOffset({
+        x: initialPanOffsetRef.current.x + deltaX,
+        y: initialPanOffsetRef.current.y + deltaY
+      });
     } else if (e.touches.length === 1 && isDragging.current) {
       // 한 손가락 드래그 시 볼륨/밝기 조절
       const touch = e.touches[0];
