@@ -77,6 +77,22 @@ export default function App() {
   });
   const [streamError, setStreamError] = useState<string | null>(null);
 
+  // 줌 상태 관리
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [zoomIndicator, setZoomIndicator] = useState<{ show: boolean, value: number }>({
+    show: false,
+    value: 100
+  });
+  const zoomTimeoutRef = useRef<any>(null);
+
+  const showZoomFeedback = (zoomVal: number) => {
+    setZoomIndicator({ show: true, value: Math.round(zoomVal * 100) });
+    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+    zoomTimeoutRef.current = setTimeout(() => {
+      setZoomIndicator(prev => ({ ...prev, show: false }));
+    }, 1000);
+  };
+
   // --- Refs ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -256,6 +272,62 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('tv-bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
+
+  // 8. 마우스 휠 스크롤을 통한 화면 40% ~ 200% 확대/축소
+  useEffect(() => {
+    const playerWrapper = playerContainerRef.current;
+    if (!playerWrapper) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoomLevel(prev => {
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+        const newZoom = Math.min(2.0, Math.max(0.4, prev + delta));
+        showZoomFeedback(newZoom);
+        return newZoom;
+      });
+    };
+
+    playerWrapper.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      playerWrapper.removeEventListener('wheel', handleWheel);
+    };
+  }, [isLoadingM3u]);
+
+  // 9. 키보드 + / - 키를 통한 화면 확대/축소
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT') {
+        return;
+      }
+
+      if (e.key === '+' || e.key === '=' || e.key === 'Add') {
+        e.preventDefault();
+        setZoomLevel(prev => {
+          const newZoom = Math.min(2.0, prev + 0.05);
+          showZoomFeedback(newZoom);
+          return newZoom;
+        });
+      } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
+        e.preventDefault();
+        setZoomLevel(prev => {
+          const newZoom = Math.max(0.4, prev - 0.05);
+          showZoomFeedback(newZoom);
+          return newZoom;
+        });
+      } else if (e.key === '0' || e.key === 'r') {
+        e.preventDefault();
+        setZoomLevel(1.0);
+        showZoomFeedback(1.0);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+    };
+  }, []);
 
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
@@ -806,8 +878,14 @@ export default function App() {
               className="player-wrapper"
             >
               <div 
-                className="w-full h-full"
-                style={{ filter: `brightness(${brightness})` }}
+                style={{ 
+                  width: '100%',
+                  height: '100%',
+                  filter: `brightness(${brightness})`,
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.15s ease-out'
+                }}
               >
                 {activeChannel.streamType === 'youtube' ? (
                   <iframe 
@@ -838,6 +916,17 @@ export default function App() {
                   <div>
                     <div className="touch-notification-title">{touchIndicator.type === 'volume' ? '음량 조절' : '밝기 조절'}</div>
                     <div className="touch-notification-value">{touchIndicator.value}%</div>
+                  </div>
+                </div>
+              )}
+
+              {/* 줌 확대/축소 값 피드백 */}
+              {zoomIndicator.show && (
+                <div className="touch-notification">
+                  <Maximize className="w-5 h-5 text-indigo-500" />
+                  <div>
+                    <div className="touch-notification-title">화면 배율</div>
+                    <div className="touch-notification-value">{zoomIndicator.value}%</div>
                   </div>
                 </div>
               )}
