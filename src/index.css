@@ -371,7 +371,7 @@ body, html, #root {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 25px;
+  padding: 4px 25px;
   background-color: var(--bg-header);
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
@@ -391,7 +391,7 @@ body, html, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 4px;
   border-radius: 50%;
   transition: background 0.2s;
 }
