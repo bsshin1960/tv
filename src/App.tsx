@@ -75,6 +75,7 @@ export default function App() {
     type: 'volume',
     value: 0
   });
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   // --- Refs ---
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -146,6 +147,8 @@ export default function App() {
 
   // 3. 비디오 채널 스트림 전환
   useEffect(() => {
+    setStreamError(null);
+
     if (isLoadingM3u) return;
 
     if (activeChannel.streamType === 'youtube') {
@@ -166,23 +169,32 @@ export default function App() {
 
     if (activeChannel.streamType === 'hls') {
       if (Hls.isSupported()) {
+        let fatalRetryCount = 0;
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
         hls.loadSource(activeChannel.streamUrl);
         hls.attachMedia(video);
         hlsRef.current = hls;
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setStreamError(null);
           if (isPlaying) video.play().catch(() => setIsPlaying(false));
         });
         hls.on(Hls.Events.ERROR, function (_, data) {
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
+                fatalRetryCount++;
+                if (fatalRetryCount > 3) {
+                  setStreamError('방송 스트림 연결 실패 (오프라인 상태이거나 국내 네트워크 차단)');
+                  hls.destroy();
+                } else {
+                  hls.startLoad();
+                }
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 hls.recoverMediaError();
                 break;
               default:
+                setStreamError('재생할 수 없는 스트림 데이터 형식입니다.');
                 hls.destroy();
                 break;
             }
@@ -191,6 +203,7 @@ export default function App() {
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = activeChannel.streamUrl;
         video.addEventListener('loadedmetadata', () => {
+          setStreamError(null);
           if (isPlaying) video.play().catch(() => setIsPlaying(false));
         });
       }
@@ -199,6 +212,13 @@ export default function App() {
       video.load();
       if (isPlaying) video.play().catch(() => setIsPlaying(false));
     }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
   }, [activeChannel, isLoadingM3u]);
 
   // 4. 비디오 재생/정지 제어
@@ -770,6 +790,7 @@ export default function App() {
                     controls={false}
                     className="video-element"
                     onClick={() => setIsPlaying(!isPlaying)}
+                    onError={() => setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)')}
                   ></video>
                 )}
               </div>
@@ -781,6 +802,19 @@ export default function App() {
                   <div>
                     <div className="touch-notification-title">{touchIndicator.type === 'volume' ? '음량 조절' : '밝기 조절'}</div>
                     <div className="touch-notification-value">{touchIndicator.value}%</div>
+                  </div>
+                </div>
+              )}
+
+              {/* 스트리밍 오류 발생 시 오버레이 화면 */}
+              {streamError && (
+                <div className="player-error-overlay">
+                  <div className="player-error-icon">⚠️</div>
+                  <div className="player-error-title">{streamError}</div>
+                  <div className="player-error-desc">
+                    선택하신 방송의 스트림 서버가 오프라인(점검 중)이거나,<br />
+                    국내 네트워크의 경우 **방통위(KCSC)에 의해 해외 주소가 차단**되었을 가능성이 큽니다.<br />
+                    이 경우 휴대폰/PC에 **VPN(우회) 앱을 실행하고 재접속**하시면 즉시 정상 시청이 가능합니다.
                   </div>
                 </div>
               )}
