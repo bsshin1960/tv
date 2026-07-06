@@ -347,19 +347,8 @@ export default function App() {
       localStorage.setItem('tv-selected-preset', fileName);
 
       if (parsed.length > 0) {
-        const savedChannelId = localStorage.getItem('tv-last-active-channel-id');
-        const allLoadedChannels = [...CHANNELS, ...parsed];
-        const lastActive = allLoadedChannels.find(ch => ch.id === savedChannelId);
-        
-        if (lastActive) {
-          setActiveChannel(lastActive);
-          const savedCategory = localStorage.getItem('tv-last-active-channel-category');
-          if (savedCategory) {
-            setSelectedCategory(savedCategory);
-          }
-        } else {
-          setActiveChannel(parsed[0]);
-        }
+        // 프리셋이 로드되면 항상 첫 번째 채널을 자동 재생
+        setActiveChannel(parsed[0]);
         setIsPlaying(true);
       }
     } catch (error: any) {
@@ -400,19 +389,8 @@ export default function App() {
       localStorage.setItem('tv-selected-preset', targetFile);
 
       if (parsed.length > 0) {
-        const savedChannelId = localStorage.getItem('tv-last-active-channel-id');
-        const allLoadedChannels = [...CHANNELS, ...parsed];
-        const lastActive = allLoadedChannels.find(ch => ch.id === savedChannelId);
-        
-        if (lastActive) {
-          setActiveChannel(lastActive);
-          const savedCategory = localStorage.getItem('tv-last-active-channel-category');
-          if (savedCategory) {
-            setSelectedCategory(savedCategory);
-          }
-        } else {
-          setActiveChannel(parsed[0]);
-        }
+        // 프리셋이 로드되면 항상 첫 번째 채널을 자동 재생
+        setActiveChannel(parsed[0]);
         setIsPlaying(true);
       }
       setIsUploadModalOpen(false);
