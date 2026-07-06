@@ -1281,7 +1281,7 @@ export default function App() {
               </div>
 
               {/* 수평 스크롤바 (진행률 조절기) */}
-              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (
+              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (!activeChannel.isM3u || activeChannel.id === 'local-mp4') && (
                 <div 
                   className={`player-scrubber-container ${(isHovered || isTouchActive) ? 'visible' : ''}`}
                   onClick={(e) => e.stopPropagation()}
