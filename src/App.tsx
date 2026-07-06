@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, 
   Sun, Moon, Heart, 
-  Minimize, ChevronDown, Search, Upload, X
+  Minimize, ChevronDown, Search, Upload, X, RefreshCw
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS } from './data/channels';
@@ -112,6 +112,18 @@ export default function App() {
     zoomTimeoutRef.current = setTimeout(() => {
       setZoomIndicator(prev => ({ ...prev, show: false }));
     }, 1000);
+  };
+
+  // 화면 배율 초기화 플로팅 버튼 상태 및 트리거
+  const [showResetOverlay, setShowResetOverlay] = useState<boolean>(false);
+  const resetOverlayTimeoutRef = useRef<any>(null);
+
+  const triggerResetOverlay = () => {
+    setShowResetOverlay(true);
+    if (resetOverlayTimeoutRef.current) clearTimeout(resetOverlayTimeoutRef.current);
+    resetOverlayTimeoutRef.current = setTimeout(() => {
+      setShowResetOverlay(false);
+    }, 4000); // 4초간 미터치 시 사라짐
   };
 
   // --- Refs ---
@@ -465,6 +477,7 @@ export default function App() {
 
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
+    triggerResetOverlay();
     if (e.touches.length === 2) {
       // 두 손가락 터치 시 핀치 줌 & 드래그 이동 시작
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -587,6 +600,7 @@ export default function App() {
 
   // 마우스 드래그를 통한 화면 이동
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    triggerResetOverlay();
     if (e.button !== 0) return;
 
     const target = e.target as HTMLElement;
@@ -1141,6 +1155,28 @@ export default function App() {
                     <div className="touch-notification-value">{zoomIndicator.text}</div>
                   </div>
                 </div>
+              )}
+
+              {/* 화면 배율 초기화 플로팅 버튼 오버레이 */}
+              {showResetOverlay && (scaleX !== 1.0 || scaleY !== 1.0 || rotation !== 0 || panOffset.x !== 0 || panOffset.y !== 0) && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setScaleX(1.0);
+                    setScaleY(1.0);
+                    setRotation(0);
+                    setPanOffset({ x: 0, y: 0 });
+                    showZoomFeedback(1.0, 1.0);
+                    setShowResetOverlay(false);
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="mobile-reset-zoom-btn"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" style={{ animation: 'spin 4s linear infinite' }} />
+                  기본 화면으로 전환
+                </button>
               )}
 
               {/* 스트리밍 오류 발생 시 오버레이 화면 */}
