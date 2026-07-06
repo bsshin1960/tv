@@ -78,16 +78,20 @@ export default function App() {
   const [streamError, setStreamError] = useState<string | null>(null);
 
   // 줌 및 화면 이동 상태 관리
-  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [scaleX, setScaleX] = useState<number>(1.0);
+  const [scaleY, setScaleY] = useState<number>(1.0);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [zoomIndicator, setZoomIndicator] = useState<{ show: boolean, value: number }>({
+  const [zoomIndicator, setZoomIndicator] = useState<{ show: boolean, text: string }>({
     show: false,
-    value: 100
+    text: '100%'
   });
   const zoomTimeoutRef = useRef<any>(null);
 
-  const showZoomFeedback = (zoomVal: number) => {
-    setZoomIndicator({ show: true, value: Math.round(zoomVal * 100) });
+  const showZoomFeedback = (sX: number, sY: number) => {
+    const valX = Math.round(sX * 100);
+    const valY = Math.round(sY * 100);
+    const text = valX === valY ? `${valX}%` : `좌우 ${valX}% / 상하 ${valY}%`;
+    setZoomIndicator({ show: true, text });
     if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     zoomTimeoutRef.current = setTimeout(() => {
       setZoomIndicator(prev => ({ ...prev, show: false }));
@@ -165,7 +169,8 @@ export default function App() {
   // 3. 비디오 채널 스트림 전환
   useEffect(() => {
     setStreamError(null);
-    setZoomLevel(1.0);
+    setScaleX(1.0);
+    setScaleY(1.0);
     setPanOffset({ x: 0, y: 0 });
 
     if (isLoadingM3u) return;
@@ -284,40 +289,65 @@ export default function App() {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.05 : -0.05;
-      const newZoom = Math.min(3.0, Math.max(0.5, zoomLevel + delta));
-      setZoomLevel(newZoom);
-      showZoomFeedback(newZoom);
+      
+      setScaleX(prevX => {
+        const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
+        setScaleY(prevY => {
+          const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
+          showZoomFeedback(newX, newY);
+          return newY;
+        });
+        return newX;
+      });
     };
 
     playerWrapper.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       playerWrapper.removeEventListener('wheel', handleWheel);
     };
-  }, [zoomLevel, isLoadingM3u]);
+  }, [isLoadingM3u]);
 
-  // 9. 키보드 + / - 키를 통한 화면 확대/축소 및 방향키를 통한 화면 이동
+  // 9. 키보드 단축키를 통한 화면 확대/축소 및 방향키를 통한 화면 이동
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT') {
         return;
       }
 
+      // Symmetrical zoom ( + / - / 0 / r )
       if (e.key === '+' || e.key === '=' || e.key === 'Add') {
         e.preventDefault();
-        const newZoom = Math.min(3.0, zoomLevel + 0.05);
-        setZoomLevel(newZoom);
-        showZoomFeedback(newZoom);
+        const delta = 0.05;
+        setScaleX(prevX => {
+          const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
+          setScaleY(prevY => {
+            const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
+            showZoomFeedback(newX, newY);
+            return newY;
+          });
+          return newX;
+        });
       } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
         e.preventDefault();
-        const newZoom = Math.max(0.5, zoomLevel - 0.05);
-        setZoomLevel(newZoom);
-        showZoomFeedback(newZoom);
+        const delta = -0.05;
+        setScaleX(prevX => {
+          const newX = Math.min(3.0, Math.max(0.5, prevX + delta));
+          setScaleY(prevY => {
+            const newY = Math.min(3.0, Math.max(0.5, prevY + delta));
+            showZoomFeedback(newX, newY);
+            return newY;
+          });
+          return newX;
+        });
       } else if (e.key === '0' || e.key === 'r') {
         e.preventDefault();
-        setZoomLevel(1.0);
+        setScaleX(1.0);
+        setScaleY(1.0);
         setPanOffset({ x: 0, y: 0 });
-        showZoomFeedback(1.0);
-      } else if (e.key === 'ArrowUp') {
+        showZoomFeedback(1.0, 1.0);
+      } 
+      // Arrow keys (Panning)
+      else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setPanOffset(prev => ({ ...prev, y: prev.y - 15 }));
       } else if (e.key === 'ArrowDown') {
@@ -330,6 +360,52 @@ export default function App() {
         e.preventDefault();
         setPanOffset(prev => ({ ...prev, x: prev.x + 15 }));
       }
+      // Stretched zoom keys: 8, 2, 4, 6
+      else if (e.key === '8') {
+        // 8번: 상하 확대 (Y stretch)
+        e.preventDefault();
+        setScaleY(prevY => {
+          const newY = Math.min(3.0, prevY + 0.05);
+          setScaleX(prevX => {
+            showZoomFeedback(prevX, newY);
+            return prevX;
+          });
+          return newY;
+        });
+      } else if (e.key === '2') {
+        // 2번: 상하 축소 (Y squish)
+        e.preventDefault();
+        setScaleY(prevY => {
+          const newY = Math.max(0.5, prevY - 0.05);
+          setScaleX(prevX => {
+            showZoomFeedback(prevX, newY);
+            return prevX;
+          });
+          return newY;
+        });
+      } else if (e.key === '4') {
+        // 4번: 좌우 확대 (X stretch)
+        e.preventDefault();
+        setScaleX(prevX => {
+          const newX = Math.min(3.0, prevX + 0.05);
+          setScaleY(prevY => {
+            showZoomFeedback(newX, prevY);
+            return prevY;
+          });
+          return newX;
+        });
+      } else if (e.key === '6') {
+        // 6번: 좌우 축소 (X squish)
+        e.preventDefault();
+        setScaleX(prevX => {
+          const newX = Math.max(0.5, prevX - 0.05);
+          setScaleY(prevY => {
+            showZoomFeedback(newX, prevY);
+            return prevY;
+          });
+          return newX;
+        });
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -337,7 +413,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
-  }, [zoomLevel]);
+  }, []);
 
   // --- 알림 & PWA 액션 ---
   const triggerBrowserNotification = (channelName: string, programTitle: string) => {
@@ -892,7 +968,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   filter: `brightness(${brightness})`,
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scaleX}, ${scaleY})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out'
                 }}
@@ -936,7 +1012,7 @@ export default function App() {
                   <Maximize className="w-5 h-5 text-indigo-500" />
                   <div>
                     <div className="touch-notification-title">화면 배율</div>
-                    <div className="touch-notification-value">{zoomIndicator.value}%</div>
+                    <div className="touch-notification-value">{zoomIndicator.text}</div>
                   </div>
                 </div>
               )}
