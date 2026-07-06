@@ -77,8 +77,9 @@ export default function App() {
   });
   const [streamError, setStreamError] = useState<string | null>(null);
 
-  // 줌 상태 관리
+  // 줌 및 화면 이동 상태 관리
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoomIndicator, setZoomIndicator] = useState<{ show: boolean, value: number }>({
     show: false,
     value: 100
@@ -164,6 +165,8 @@ export default function App() {
   // 3. 비디오 채널 스트림 전환
   useEffect(() => {
     setStreamError(null);
+    setZoomLevel(1.0);
+    setPanOffset({ x: 0, y: 0 });
 
     if (isLoadingM3u) return;
 
@@ -273,7 +276,7 @@ export default function App() {
     localStorage.setItem('tv-bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // 8. 마우스 휠 스크롤을 통한 화면 50% ~ 200% 확대/축소
+  // 8. 마우스 휠 스크롤을 통한 화면 50% ~ 300% 확대/축소
   useEffect(() => {
     const playerWrapper = playerContainerRef.current;
     if (!playerWrapper) return;
@@ -281,7 +284,7 @@ export default function App() {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.05 : -0.05;
-      const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
+      const newZoom = Math.min(3.0, Math.max(0.5, zoomLevel + delta));
       setZoomLevel(newZoom);
       showZoomFeedback(newZoom);
     };
@@ -292,7 +295,7 @@ export default function App() {
     };
   }, [zoomLevel, isLoadingM3u]);
 
-  // 9. 키보드 + / - 키를 통한 화면 확대/축소
+  // 9. 키보드 + / - 키를 통한 화면 확대/축소 및 방향키를 통한 화면 이동
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT') {
@@ -301,7 +304,7 @@ export default function App() {
 
       if (e.key === '+' || e.key === '=' || e.key === 'Add') {
         e.preventDefault();
-        const newZoom = Math.min(2.0, zoomLevel + 0.05);
+        const newZoom = Math.min(3.0, zoomLevel + 0.05);
         setZoomLevel(newZoom);
         showZoomFeedback(newZoom);
       } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
@@ -312,7 +315,20 @@ export default function App() {
       } else if (e.key === '0' || e.key === 'r') {
         e.preventDefault();
         setZoomLevel(1.0);
+        setPanOffset({ x: 0, y: 0 });
         showZoomFeedback(1.0);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setPanOffset(prev => ({ ...prev, y: prev.y - 15 }));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setPanOffset(prev => ({ ...prev, y: prev.y + 15 }));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setPanOffset(prev => ({ ...prev, x: prev.x - 15 }));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setPanOffset(prev => ({ ...prev, x: prev.x + 15 }));
       }
     };
 
@@ -876,7 +892,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   filter: `brightness(${brightness})`,
-                  transform: `scale(${zoomLevel})`,
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out'
                 }}
