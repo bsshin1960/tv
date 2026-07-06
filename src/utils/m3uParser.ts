@@ -83,7 +83,10 @@ export function parseM3U(text: string): Channel[] {
       currentMetadata = { tvgId, logo, groupTitle, name };
     } else if (!line.startsWith('#')) {
       if (currentMetadata && (line.startsWith('http://') || line.startsWith('https://'))) {
-        const streamUrl = line;
+        let streamUrl = line;
+        if (streamUrl.startsWith('http://')) {
+          streamUrl = streamUrl.replace('http://', 'https://');
+        }
         
         let streamType: 'hls' | 'mp4' | 'youtube' = 'hls';
         if (streamUrl.includes('youtube.com/') || streamUrl.includes('youtu.be/')) {
