@@ -125,6 +125,9 @@ export default function App() {
   const initialScaleXRef = useRef<number>(1.0);
   const initialScaleYRef = useRef<number>(1.0);
   const touchStartMidpointRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const initialDxRef = useRef<number>(0);
+  const initialDyRef = useRef<number>(0);
+  const pinchModeRef = useRef<'all' | 'x' | 'y'>('all');
   
   // 드롭다운 외부 클릭 시 닫기용 Ref
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -470,6 +473,19 @@ export default function App() {
       initialPinchDistanceRef.current = dist;
       initialScaleXRef.current = scaleX;
       initialScaleYRef.current = scaleY;
+      initialDxRef.current = Math.abs(dx);
+      initialDyRef.current = Math.abs(dy);
+
+      // 두 손가락 정렬 각도 계산 (0 ~ 180도) -> [0, 90] 범위로 정규화
+      const angle = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+      const angleNormalized = angle > 90 ? 180 - angle : angle;
+      if (angleNormalized < 30) {
+        pinchModeRef.current = 'x'; // 가로 눕혀 터치 -> 좌우 줌만 활성화
+      } else if (angleNormalized > 60) {
+        pinchModeRef.current = 'y'; // 세로 세워 터치 -> 상하 줌만 활성화
+      } else {
+        pinchModeRef.current = 'all'; // 대각선 터치 -> 대칭 줌 활성화
+      }
 
       // 두 손가락 중간점 좌표 기록
       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -490,17 +506,34 @@ export default function App() {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // 두 손가락 드래그 시 핀치 줌 & 화면 이동(Pan) 동시 적용
-      if (initialPinchDistanceRef.current === 0) return;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const factor = dist / initialPinchDistanceRef.current;
-      
-      const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
-      const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
-      setScaleX(newScaleX);
-      setScaleY(newScaleY);
-      showZoomFeedback(newScaleX, newScaleY);
+
+      if (pinchModeRef.current === 'x') {
+        if (initialDxRef.current > 10) {
+          const factor = Math.abs(dx) / initialDxRef.current;
+          const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
+          setScaleX(newScaleX);
+          showZoomFeedback(newScaleX, initialScaleYRef.current);
+        }
+      } else if (pinchModeRef.current === 'y') {
+        if (initialDyRef.current > 10) {
+          const factor = Math.abs(dy) / initialDyRef.current;
+          const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
+          setScaleY(newScaleY);
+          showZoomFeedback(initialScaleXRef.current, newScaleY);
+        }
+      } else {
+        if (initialPinchDistanceRef.current > 10) {
+          const factor = dist / initialPinchDistanceRef.current;
+          const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
+          const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
+          setScaleX(newScaleX);
+          setScaleY(newScaleY);
+          showZoomFeedback(newScaleX, newScaleY);
+        }
+      }
 
       // 중심점 변화량을 바탕으로 화면 이동(Pan) 좌표 업데이트
       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -544,6 +577,9 @@ export default function App() {
   const handleTouchEnd = () => {
     isDragging.current = false;
     initialPinchDistanceRef.current = 0;
+    initialDxRef.current = 0;
+    initialDyRef.current = 0;
+    pinchModeRef.current = 'all';
     setTimeout(() => {
       setTouchIndicator(prev => ({ ...prev, show: false }));
     }, 1200);
