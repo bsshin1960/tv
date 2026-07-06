@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/tv/',
   server: {
     open: false
   },
@@ -16,7 +17,7 @@ export default defineConfig({
         name: 'TV ON - 실시간 스마트 TV',
         short_name: 'TV ON',
         description: '공중파, 지상파/케이블, 인터넷 방송, 홈쇼핑을 고화질로 감상할 수 있는 스마트 TV 웹앱',
-        start_url: '/',
+        start_url: '/tv/',
         theme_color: '#0b0f19',
         background_color: '#0b0f19',
         display: 'standalone',

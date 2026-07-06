@@ -351,7 +351,7 @@ export default function App() {
   const loadM3uFile = async (fileName: string) => {
     setIsLoadingM3u(true);
     try {
-      const response = await fetch(`/${fileName}`);
+      const response = await fetch(`${import.meta.env.BASE_URL}${fileName}`);
       if (!response.ok) {
         throw new Error('M3U 파일을 불러오는데 실패했습니다.');
       }
@@ -404,7 +404,7 @@ export default function App() {
 
     setIsLoadingM3u(true);
     try {
-      const response = await fetch(`/${targetFile}`);
+      const response = await fetch(`${import.meta.env.BASE_URL}${targetFile}`);
       if (!response.ok) {
         throw new Error('파일이 public 폴더에 존재하지 않습니다.');
       }
