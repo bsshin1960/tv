@@ -1105,7 +1105,7 @@ export default function App() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleUploadM3u} 
-                accept=".m3u,.m3u8,.mp4" 
+                accept=".m3u,.m3u8,application/octet-stream" 
                 style={{ display: 'none' }} 
               />
               
