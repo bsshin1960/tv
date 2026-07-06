@@ -108,6 +108,7 @@ export default function App() {
 
   // 화면 배율 초기화 플로팅 버튼 상태 및 트리거
   const [showResetOverlay, setShowResetOverlay] = useState<boolean>(false);
+  const [isMobileLandscape, setIsMobileLandscape] = useState<boolean>(false);
   const resetOverlayTimeoutRef = useRef<any>(null);
 
   const triggerResetOverlay = () => {
@@ -150,6 +151,53 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [zoomIndicator.show, zoomIndicator.text]);
+
+  // 모바일 가로 모드 회전 시 자동 전체 화면 (Full Display) 전환 이펙트
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(orientation: landscape)');
+    
+    const handleOrientationChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      const isLandscape = e.matches;
+      // 가로 폭이 1024px 이하일 때 모바일로 판정
+      const isMobile = window.innerWidth <= 1024 || (window.screen && window.screen.width <= 1024);
+      
+      if (isMobile) {
+        if (isLandscape) {
+          setIsMobileLandscape(true);
+          const element = playerContainerRef.current;
+          if (element && !document.fullscreenElement) {
+            element.requestFullscreen()
+              .then(() => setIsFullscreen(true))
+              .catch((err) => console.log('Native fullscreen request blocked:', err));
+          }
+        } else {
+          setIsMobileLandscape(false);
+          if (document.fullscreenElement) {
+            document.exitFullscreen()
+              .then(() => setIsFullscreen(false))
+              .catch(console.error);
+          }
+        }
+      }
+    };
+
+    // 최초 실행 시점 상태 반영
+    handleOrientationChange(mediaQuery);
+
+    // 회전 감지 리스너 등록
+    mediaQuery.addEventListener('change', handleOrientationChange);
+    
+    // 리사이즈 시점 더블 체크
+    const handleResize = () => {
+      handleOrientationChange(window.matchMedia('(orientation: landscape)'));
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleOrientationChange);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   // 1. 실시간 시계 & 타이머 & 예약 알림 체크
   useEffect(() => {
@@ -1100,7 +1148,7 @@ export default function App() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseUpOrLeave}
-              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''}`}
+              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${isMobileLandscape ? 'landscape-full' : ''}`}
             >
               <div 
                 style={{ 

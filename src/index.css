@@ -1796,3 +1796,16 @@ body, html, #root {
     transform: rotate(360deg);
   }
 }
+
+/* 모바일 가로 모드 자동 가상 전체 화면 */
+@media (max-width: 1024px) {
+  .player-wrapper.landscape-full {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999 !important;
+    background-color: #000 !important;
+  }
+}
