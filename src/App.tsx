@@ -1105,7 +1105,7 @@ export default function App() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleUploadM3u} 
-                accept=".m3u,.m3u8,application/octet-stream" 
+                accept={/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'application/octet-stream' : '.m3u,.m3u8,.mp4'} 
                 style={{ display: 'none' }} 
               />
               
