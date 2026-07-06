@@ -157,6 +157,7 @@ export default function App() {
   const mouseStartPosRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const initialPanOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const draggedRef = useRef<boolean>(false);
+  const isScrubbingRef = useRef<boolean>(false);
 
   const showZoomFeedback = (sX: number, sY: number) => {
     const valX = Math.round(sX * 100);
@@ -705,6 +706,7 @@ export default function App() {
   };
 
   const handleTouchEnd = () => {
+    isScrubbingRef.current = false;
     refreshTouchActive();
     isDragging.current = false;
     initialPinchDistanceRef.current = 0;
@@ -756,6 +758,7 @@ export default function App() {
   };
 
   const handleMouseUpOrLeave = () => {
+    isScrubbingRef.current = false;
     if (isMouseDraggingRef.current) {
       isMouseDraggingRef.current = false;
       setIsMouseDragging(false);
@@ -1262,7 +1265,9 @@ export default function App() {
                       }
                     }}
                     onTimeUpdate={(e) => {
-                      setVideoCurrentTime(e.currentTarget.currentTime);
+                      if (!isScrubbingRef.current) {
+                        setVideoCurrentTime(e.currentTarget.currentTime);
+                      }
                     }}
                     onLoadedMetadata={(e) => {
                       setVideoDuration(e.currentTarget.duration);
@@ -1313,6 +1318,22 @@ export default function App() {
                     max={videoDuration}
                     step="0.1"
                     value={videoCurrentTime}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      isScrubbingRef.current = true;
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                      isScrubbingRef.current = true;
+                    }}
+                    onMouseUp={(e) => {
+                      e.stopPropagation();
+                      isScrubbingRef.current = false;
+                    }}
+                    onTouchEnd={(e) => {
+                      e.stopPropagation();
+                      isScrubbingRef.current = false;
+                    }}
                     onChange={handleScrub}
                     className="player-scrubber-slider"
                     style={{
