@@ -32,9 +32,12 @@ if not exist node_modules (
     )
 )
 
-rem Start dev server in the background
-echo [INFO] Starting development server...
-start /min "" cmd /c npm run dev
+rem Start dev server in the background (completely hidden using VBScript)
+echo [INFO] Starting development server in the background...
+echo Set WshShell = CreateObject("WScript.Shell") > "%temp%\launch_vite.vbs"
+echo WshShell.Run "cmd /c npm run dev", 0, false >> "%temp%\launch_vite.vbs"
+wscript.exe "%temp%\launch_vite.vbs"
+del "%temp%\launch_vite.vbs"
 
 rem Wait 3 seconds for server to initialize
 ping 127.0.0.1 -n 4 >nul
