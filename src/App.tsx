@@ -10,19 +10,13 @@ import type { Channel, Program } from './data/channels';
 import { parseM3U } from './utils/m3uParser';
 // Reverted to clean 09b3e07 state (No custom bottom-sheet)
 const PRELOADED_FILES = [
-  { name: 'Korea(2).m3u', label: '한국 방송 목록 (기본)' },
-  { name: 'Korea(1).m3u', label: '한국 방송 목록 (대체)' },
-  { name: '국가별_index.country.m3u', label: '국가별 방송 목록' },
-  { name: '언어별_index.language.m3u', label: '언어별 방송 목록' },
-  { name: '카테고리별_index.category.m3u', label: '카테고리별 방송 목록' },
-  { name: 'Adult(all).m3u', label: '성인 방송 목록 (전체)' },
-  { name: 'Adult(1).m3u', label: '성인 방송 목록 1' },
-  { name: 'Adult(2).m3u', label: '성인 방송 목록 2' },
-  { name: 'Adult(3).m3u', label: '성인 방송 목록 3' },
-  { name: 'Adult(4).m3u', label: '성인 방송 목록 4' },
-  { name: 'Adult(5).m3u', label: '성인 방송 목록 5' },
-  { name: 'Adult3.m3u', label: '성인 방송 목록 (Adult3)' },
-  { name: '전체 방송(성인_0283)_index.nsfw.m3u', label: '성인 방송 목록 (NSFW 전체)' }
+  { name: 'Korea(2).m3u', label: '한국 방송 목록' },
+  { name: 'Country.m3u', label: '국가별 방송 목록' },
+  { name: 'Language.m3u', label: '언어별 방송 목록' },
+  { name: 'Category.m3u', label: '카테고리별 방송 목록' },
+  { name: 'Adult_All_Excepted Duplicate.m3u', label: '성인 방송 목록 (중복 제거)' },
+  { name: 'All_Broadcasting(Adult).m3u', label: '성인 방송 목록 (전체)' },
+  { name: 'World 2025.m3u', label: '월드 2025 방송 목록' }
 ];
 
 const formatTime = (seconds: number) => {
@@ -1094,11 +1088,7 @@ export default function App() {
         </div>
 
         <div className="header-right">
-          {/* 실행 URL 표시 */}
-          <span className="header-url">
-            <span className="header-url-dot"></span>
-            {window.location.href}
-          </span>
+
 
           {/* 아날로그-디지털 융합 시계 */}
           <span className="header-clock hidden-mobile">
