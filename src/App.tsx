@@ -292,6 +292,9 @@ export default function App() {
       hlsRef.current = null;
     }
 
+    let active = true;
+    let canPlayListener: (() => void) | null = null;
+
     if (activeChannel.streamType === 'hls') {
       if (Hls.isSupported()) {
         let fatalRetryCount = 0;
@@ -301,7 +304,13 @@ export default function App() {
         hlsRef.current = hls;
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setStreamError(null);
-          if (isPlaying) video.play().catch(() => setIsPlaying(false));
+          if (isPlaying && active) {
+            video.play().catch((err) => {
+              if (err.name !== 'AbortError' && active) {
+                setIsPlaying(false);
+              }
+            });
+          }
         });
         hls.on(Hls.Events.ERROR, function (_, data) {
           if (data.fatal) {
@@ -327,18 +336,40 @@ export default function App() {
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = activeChannel.streamUrl;
-        video.addEventListener('loadedmetadata', () => {
+        const handleHlsMetadata = () => {
           setStreamError(null);
-          if (isPlaying) video.play().catch(() => setIsPlaying(false));
-        });
+          if (isPlaying && active) {
+            video.play().catch((err) => {
+              if (err.name !== 'AbortError' && active) {
+                setIsPlaying(false);
+              }
+            });
+          }
+        };
+        video.addEventListener('loadedmetadata', handleHlsMetadata, { once: true });
       }
     } else {
       video.src = activeChannel.streamUrl;
       video.load();
-      if (isPlaying) video.play().catch(() => setIsPlaying(false));
+      const handleCanPlay = () => {
+        if (!active) return;
+        if (isPlaying) {
+          video.play().catch((err) => {
+            if (err.name !== 'AbortError' && active) {
+              setIsPlaying(false);
+            }
+          });
+        }
+      };
+      video.addEventListener('canplay', handleCanPlay, { once: true });
+      canPlayListener = handleCanPlay;
     }
 
     return () => {
+      active = false;
+      if (canPlayListener && video) {
+        video.removeEventListener('canplay', canPlayListener);
+      }
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -1276,13 +1307,18 @@ export default function App() {
                       setVideoDuration(e.currentTarget.duration);
                     }}
                     onEnded={handleVideoEnded}
-                    onError={() => setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)')}
+                    onError={(e) => {
+                      const err = e.currentTarget.error;
+                      if (err && err.code !== 1) { // 1 = MEDIA_ERR_ABORTED
+                        setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)');
+                      }
+                    }}
                   ></video>
                 )}
               </div>
 
               {/* 수평 스크롤바 (진행률 조절기) */}
-              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (!activeChannel.isM3u || activeChannel.id === 'local-mp4') && (
+              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (!activeChannel.isM3u || activeChannel.id.startsWith('local-mp4')) && (
                 <div 
                   className={`player-scrubber-container ${(isHovered || isTouchActive) ? 'visible' : ''}`}
                   onClick={(e) => e.stopPropagation()}
