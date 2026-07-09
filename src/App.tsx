@@ -195,7 +195,6 @@ export default function App() {
   const categoryRef = useRef<HTMLDivElement>(null);
   const subCategoryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // --- 이펙트 ---
   
@@ -1107,15 +1106,8 @@ export default function App() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleUploadM3u} 
-                accept={/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'application/octet-stream' : '.m3u,.m3u8,.mp4,.mkv,.avi,.mov,.webm,.m4v'} 
+                accept="video/*,.m3u,.m3u8"
                 multiple
-                style={{ display: 'none' }} 
-              />
-              <input 
-                type="file" 
-                ref={folderInputRef} 
-                onChange={handleUploadM3u} 
-                {...{ webkitdirectory: "", directory: "" }} 
                 style={{ display: 'none' }} 
               />
               
@@ -1542,31 +1534,19 @@ export default function App() {
               </div>
             )}
 
-            <div className="upload-modal-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="upload-modal-buttons">
               <button 
                 onClick={() => {
                   setIsUploadModalOpen(false);
                   fileInputRef.current?.click();
                 }}
                 className="m3u-btn outline"
-                style={{ flex: 1, minWidth: '110px' }}
               >
                 기기 파일 선택
               </button>
               <button 
-                onClick={() => {
-                  setIsUploadModalOpen(false);
-                  folderInputRef.current?.click();
-                }}
-                className="m3u-btn outline"
-                style={{ flex: 1, minWidth: '110px' }}
-              >
-                기기 폴더 선택
-              </button>
-              <button 
                 onClick={() => setIsUploadModalOpen(false)}
                 className="m3u-btn text-only"
-                style={{ marginLeft: 'auto' }}
               >
                 취소
               </button>
