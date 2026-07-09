@@ -3,7 +3,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, 
   Sun, Moon, Heart, 
   Minimize, ChevronDown, Search, Upload, X, RefreshCw,
-  Shuffle, SkipBack, SkipForward
+  Shuffle, SkipBack, SkipForward, Repeat
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS } from './data/channels';
@@ -71,6 +71,7 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [brightness, setBrightness] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   
   // 드롭다운 및 아코디언 토글 상태 (풀다운 메뉴 개편 핵심)
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
@@ -171,6 +172,8 @@ export default function App() {
 
   // 랜덤 재생 모드 상태
   const [isShuffleMode, setIsShuffleMode] = useState<boolean>(false);
+  // 반복 재생 모드 상태
+  const [isLoopMode, setIsLoopMode] = useState<boolean>(false);
 
   const triggerResetOverlay = () => {
     setShowResetOverlay(true);
@@ -181,7 +184,9 @@ export default function App() {
   };
 
   // --- Refs ---
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const shadowHostRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const touchStartY = useRef<number>(0);
@@ -212,6 +217,99 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [zoomIndicator.show, zoomIndicator.text]);
+
+  // 실시간 비디오 프레임을 캔버스에 그리는 렌더링 루프 (모바일 우클릭/롱프레스 다운로드 방지)
+  useEffect(() => {
+    let animationFrameId: number;
+    const canvas = canvasRef.current;
+    if (!canvas || !videoElement) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawFrame = () => {
+      // 비디오가 데이터를 가지고 재생 가능한 상태일 때 그림
+      if (videoElement.readyState >= 2) {
+        if (canvas.width !== videoElement.videoWidth || canvas.height !== videoElement.videoHeight) {
+          canvas.width = videoElement.videoWidth || 640;
+          canvas.height = videoElement.videoHeight || 360;
+        }
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      }
+      animationFrameId = requestAnimationFrame(drawFrame);
+    };
+
+    drawFrame();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [videoElement, activeChannel, isLoadingM3u]);
+
+  // Shadow DOM 내부에 <video> 엘리먼트를 격리 — 안드로이드 브라우저가 DOM 탐색으로 video 태그를
+  // 감지하지 못하도록 완벽히 차단. Shadow DOM은 일반 Light DOM과 분리되어 있어
+  // 브라우저의 미디어 컨텍스트 메뉴 탐색 로직이 진입 불가능.
+  useEffect(() => {
+    const host = shadowHostRef.current;
+    if (!host) return;
+
+    // 이미 Shadow Root가 부착되어 있으면 재사용
+    const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+
+    // 기존 video 제거
+    while (shadow.firstChild) shadow.removeChild(shadow.firstChild);
+
+    const video = document.createElement('video');
+    video.playsInline = true;
+    video.autoplay = true;
+    video.setAttribute('controlsList', 'nodownload');
+    video.setAttribute('disablePictureInPicture', '');
+    video.setAttribute('disableRemotePlayback', '');
+    video.style.cssText = [
+      'position:absolute',
+      'left:-99999px',
+      'top:-99999px',
+      'width:1px',
+      'height:1px',
+      'opacity:0',
+      'pointer-events:none',
+    ].join(';');
+    video.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 비디오 이벤트를 React state 업데이트에 연결
+    video.addEventListener('timeupdate', () => {
+      if (!isScrubbingRef.current) {
+        setVideoCurrentTime(video.currentTime);
+      }
+    });
+    video.addEventListener('loadedmetadata', () => {
+      setVideoDuration(video.duration);
+    });
+    video.addEventListener('durationchange', () => {
+      setVideoDuration(video.duration);
+    });
+    video.addEventListener('ended', handleVideoEnded);
+    video.addEventListener('error', () => {
+      const err = video.error;
+      if (err && err.code !== 1) {
+        setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)');
+      }
+    });
+
+    shadow.appendChild(video);
+
+    // videoRef 및 videoElement state 업데이트
+    videoRef.current = video;
+    setVideoElement(video);
+
+    return () => {
+      // cleanup: video 제거
+      try { shadow.removeChild(video); } catch (_) { /* ignore */ }
+      videoRef.current = null;
+      setVideoElement(null);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
 
@@ -288,8 +386,7 @@ export default function App() {
       return;
     }
 
-    const video = videoRef.current;
-    if (!video) return;
+    if (!videoElement) return;
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -304,12 +401,12 @@ export default function App() {
         let fatalRetryCount = 0;
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
         hls.loadSource(activeChannel.streamUrl);
-        hls.attachMedia(video);
+        hls.attachMedia(videoElement);
         hlsRef.current = hls;
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setStreamError(null);
           if (isPlaying && active) {
-            video.play().catch((err) => {
+            videoElement.play().catch((err) => {
               if (err.name !== 'AbortError' && active) {
                 setIsPlaying(false);
               }
@@ -338,66 +435,70 @@ export default function App() {
             }
           }
         });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = activeChannel.streamUrl;
+      } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        videoElement.src = activeChannel.streamUrl;
         const handleHlsMetadata = () => {
           setStreamError(null);
           if (isPlaying && active) {
-            video.play().catch((err) => {
+            videoElement.play().catch((err) => {
               if (err.name !== 'AbortError' && active) {
                 setIsPlaying(false);
               }
             });
           }
         };
-        video.addEventListener('loadedmetadata', handleHlsMetadata, { once: true });
+        videoElement.addEventListener('loadedmetadata', handleHlsMetadata, { once: true });
       }
     } else {
-      video.src = activeChannel.streamUrl;
-      video.load();
+      videoElement.src = activeChannel.streamUrl;
+      videoElement.load();
       const handleCanPlay = () => {
         if (!active) return;
         if (isPlaying) {
-          video.play().catch((err) => {
+          videoElement.play().catch((err) => {
             if (err.name !== 'AbortError' && active) {
               setIsPlaying(false);
             }
           });
         }
       };
-      video.addEventListener('canplay', handleCanPlay, { once: true });
+      videoElement.addEventListener('canplay', handleCanPlay, { once: true });
       canPlayListener = handleCanPlay;
     }
 
     return () => {
       active = false;
-      if (canPlayListener && video) {
-        video.removeEventListener('canplay', canPlayListener);
+      if (canPlayListener && videoElement) {
+        videoElement.removeEventListener('canplay', canPlayListener);
       }
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [activeChannel, isLoadingM3u]);
+  }, [videoElement, activeChannel, isLoadingM3u]);
 
   // 4. 비디오 재생/정지 제어
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || activeChannel.streamType === 'youtube') return;
+    if (!videoElement || activeChannel.streamType === 'youtube') return;
     if (isPlaying) {
-      video.play().catch(() => setIsPlaying(false));
+      videoElement.play().catch(() => setIsPlaying(false));
     } else {
-      video.pause();
+      videoElement.pause();
     }
-  }, [isPlaying, activeChannel]);
+  }, [videoElement, isPlaying, activeChannel]);
 
   // 5. 볼륨 제어
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.volume = isMuted ? 0 : volume;
-  }, [volume, isMuted]);
+    if (!videoElement) return;
+    videoElement.volume = isMuted ? 0 : volume;
+  }, [videoElement, volume, isMuted]);
+
+  // 반복 재생 모드 적용
+  useEffect(() => {
+    if (!videoElement) return;
+    videoElement.loop = isLoopMode;
+  }, [videoElement, isLoopMode]);
 
   // 6. 다크/라이트 테마 변경
   useEffect(() => {
@@ -552,17 +653,14 @@ export default function App() {
   };
 
   const lastTapRef = useRef<number>(0);
-  const handleVideoTouchStart = (e: React.TouchEvent<HTMLVideoElement>) => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      e.preventDefault();
-      toggleFullscreen();
-    }
-    lastTapRef.current = now;
-  };
+  const isPinchingRef = useRef<boolean>(false); // 두 손가락 핀치 세션 추적
+  const maxTouchesRef = useRef<number>(0);     // 현재 터치 세션 중 최대 터치 개수 추적
 
-  const handleVideoDoubleClick = (e: React.MouseEvent<HTMLVideoElement>) => {
+  const handleVideoDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // 모바일 터치로 인한 더블클릭 이벤트인 경우 무시 (pointerType이 'mouse'인 경우에만 전체화면 토글)
+    if ((e.nativeEvent as any).pointerType && (e.nativeEvent as any).pointerType !== 'mouse') {
+      return;
+    }
     e.preventDefault();
     toggleFullscreen();
   };
@@ -570,6 +668,13 @@ export default function App() {
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    // 모바일 및 PC 전체에서 컨텍스트 메뉴(우클릭 및 롱프레스 다운로드 팝업)를 캡처 단계에서 원천 차단
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -599,6 +704,7 @@ export default function App() {
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       document.removeEventListener('mouseleave', handleGlobalMouseLeave);
@@ -606,11 +712,57 @@ export default function App() {
   }, []);
 
 
+  // 터치 이벤트 핸들러 최신 참조 보관 Ref (Passive: false를 위한 State closure 해결)
+  const handleTouchStartRef = useRef<any>(null);
+  const handleTouchMoveRef = useRef<any>(null);
+  const handleTouchEndRef = useRef<any>(null);
+
+  useEffect(() => {
+    handleTouchStartRef.current = handleTouchStart;
+    handleTouchMoveRef.current = handleTouchMove;
+    handleTouchEndRef.current = handleTouchEnd;
+  }); // 매 렌더링마다 최신 핸들러 업데이트
+
+  // 모바일 비수동 터치 리스너 직접 바인딩
+  useEffect(() => {
+    const element = playerContainerRef.current;
+    if (!element) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (handleTouchStartRef.current) handleTouchStartRef.current(e);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (handleTouchMoveRef.current) handleTouchMoveRef.current(e);
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (handleTouchEndRef.current) handleTouchEndRef.current(e);
+    };
+
+    element.addEventListener('touchstart', onTouchStart, { passive: false });
+    element.addEventListener('touchmove', onTouchMove, { passive: false });
+    element.addEventListener('touchend', onTouchEnd, { passive: false });
+
+    return () => {
+      element.removeEventListener('touchstart', onTouchStart);
+      element.removeEventListener('touchmove', onTouchMove);
+      element.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
   // 모바일 터치 제스처
   const handleTouchStart = (e: React.TouchEvent) => {
     refreshTouchActive();
     triggerResetOverlay();
-    if (e.touches.length === 2) {
+
+    // 현재 터치 세션의 최대 터치 개수를 기록
+    maxTouchesRef.current = Math.max(maxTouchesRef.current, e.touches.length);
+
+    if (e.touches.length >= 2) {
+      // 두 손가락 이상이 닿으면 핀치 세션 시작 — 더블탭 오인식 방지를 위해 타이머 리셋
+      isPinchingRef.current = true;
+      lastTapRef.current = 0;
+
+      e.preventDefault(); // 기본 브라우저 핀치 줌 및 확대 해제 차단
       // 두 손가락 터치 시 핀치 줌 & 드래그 이동 시작
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -639,18 +791,27 @@ export default function App() {
       initialPanOffsetRef.current = { x: panOffset.x, y: panOffset.y };
 
       isDragging.current = false; // 한 손가락 볼륨/밝기 이동 차단
+
     } else if (e.touches.length === 1) {
-      // 한 손가락 터치 시 기존 밝기/볼륨 조절 시작
+      // 한 손가락 터치 시 기존 밝기/볼륨 조절 및 패닝 대기
       const touch = e.touches[0];
       touchStartY.current = touch.clientY;
       touchStartX.current = touch.clientX;
       isDragging.current = true;
+
+      // 화면이 확대된 상태라면, 한 손가락으로 화면을 끌어다 이동(Panning)할 수 있도록 초기 좌표 설정
+      if (scaleX > 1.0 || scaleY > 1.0) {
+        initialPanOffsetRef.current = { x: panOffset.x, y: panOffset.y };
+      }
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     refreshTouchActive();
+    maxTouchesRef.current = Math.max(maxTouchesRef.current, e.touches.length);
+
     if (e.touches.length === 2) {
+      e.preventDefault(); // 기본 브라우저 핀치 줌 및 확대 해제 차단
       // 두 손가락 드래그 시 핀치 줌 & 화면 이동(Pan) 동시 적용
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -659,25 +820,31 @@ export default function App() {
       if (pinchModeRef.current === 'x') {
         if (initialDxRef.current > 10) {
           const factor = Math.abs(dx) / initialDxRef.current;
-          const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
-          setScaleX(newScaleX);
-          showZoomFeedback(newScaleX, initialScaleYRef.current);
+          if (!isNaN(factor) && isFinite(factor)) {
+            const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
+            setScaleX(newScaleX);
+            showZoomFeedback(newScaleX, initialScaleYRef.current);
+          }
         }
       } else if (pinchModeRef.current === 'y') {
         if (initialDyRef.current > 10) {
           const factor = Math.abs(dy) / initialDyRef.current;
-          const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
-          setScaleY(newScaleY);
-          showZoomFeedback(initialScaleXRef.current, newScaleY);
+          if (!isNaN(factor) && isFinite(factor)) {
+            const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
+            setScaleY(newScaleY);
+            showZoomFeedback(initialScaleXRef.current, newScaleY);
+          }
         }
       } else {
         if (initialPinchDistanceRef.current > 10) {
           const factor = dist / initialPinchDistanceRef.current;
-          const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
-          const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
-          setScaleX(newScaleX);
-          setScaleY(newScaleY);
-          showZoomFeedback(newScaleX, newScaleY);
+          if (!isNaN(factor) && isFinite(factor)) {
+            const newScaleX = Math.min(3.0, Math.max(0.5, initialScaleXRef.current * factor));
+            const newScaleY = Math.min(3.0, Math.max(0.5, initialScaleYRef.current * factor));
+            setScaleX(newScaleX);
+            setScaleY(newScaleY);
+            showZoomFeedback(newScaleX, newScaleY);
+          }
         }
       }
 
@@ -686,41 +853,60 @@ export default function App() {
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const deltaX = midX - touchStartMidpointRef.current.x;
       const deltaY = midY - touchStartMidpointRef.current.y;
-      setPanOffset({
-        x: initialPanOffsetRef.current.x + deltaX,
-        y: initialPanOffsetRef.current.y + deltaY
-      });
-    } else if (e.touches.length === 1 && isDragging.current) {
-      // 한 손가락 드래그 시 볼륨/밝기 조절
-      const touch = e.touches[0];
-      const deltaY = touchStartY.current - touch.clientY;
-      const container = playerContainerRef.current;
-      if (!container) return;
-
-      const width = container.clientWidth;
-      const isLeftSide = touchStartX.current < width / 2;
-
-      if (isLeftSide) {
-        const change = deltaY / 300;
-        setBrightness(prev => {
-          const val = Math.min(1.5, Math.max(0.2, prev + change));
-          setTouchIndicator({ show: true, type: 'brightness', value: Math.round(val * 100) });
-          return val;
-        });
-      } else {
-        const change = deltaY / 300;
-        setVolume(prev => {
-          const val = Math.min(1.0, Math.max(0.0, prev + change));
-          setIsMuted(false);
-          setTouchIndicator({ show: true, type: 'volume', value: Math.round(val * 100) });
-          return val;
+      if (!isNaN(deltaX) && isFinite(deltaX) && !isNaN(deltaY) && isFinite(deltaY)) {
+        setPanOffset({
+          x: initialPanOffsetRef.current.x + deltaX,
+          y: initialPanOffsetRef.current.y + deltaY
         });
       }
-      touchStartY.current = touch.clientY;
+    } else if (e.touches.length === 1 && isDragging.current) {
+      // 한 손가락 드래그 시 볼륨/밝기 조절 또는 화면 이동(Pan)
+      const touch = e.touches[0];
+      const isZoomed = scaleX > 1.0 || scaleY > 1.0;
+
+      if (isZoomed) {
+        e.preventDefault(); // 스크롤/바운스 효과 차단
+        // 화면이 확대된 상태이면 화면 이동(Panning) 처리
+        const deltaX = touch.clientX - touchStartX.current;
+        const deltaY = touch.clientY - touchStartY.current;
+        if (!isNaN(deltaX) && isFinite(deltaX) && !isNaN(deltaY) && isFinite(deltaY)) {
+          setPanOffset({
+            x: initialPanOffsetRef.current.x + deltaX,
+            y: initialPanOffsetRef.current.y + deltaY
+          });
+        }
+      } else {
+        e.preventDefault(); // 스크롤/바운스 효과 차단
+        // 화면이 기본 상태이면 기존 볼륨/밝기 조절
+        const deltaY = touchStartY.current - touch.clientY;
+        const container = playerContainerRef.current;
+        if (!container) return;
+
+        const width = container.clientWidth;
+        const isLeftSide = touchStartX.current < width / 2;
+
+        if (isLeftSide) {
+          const change = deltaY / 300;
+          setBrightness(prev => {
+            const val = Math.min(1.5, Math.max(0.2, prev + change));
+            setTouchIndicator({ show: true, type: 'brightness', value: Math.round(val * 100) });
+            return val;
+          });
+        } else {
+          const change = deltaY / 300;
+          setVolume(prev => {
+            const val = Math.min(1.0, Math.max(0.0, prev + change));
+            setIsMuted(false);
+            setTouchIndicator({ show: true, type: 'volume', value: Math.round(val * 100) });
+            return val;
+          });
+        }
+        touchStartY.current = touch.clientY;
+      }
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     isScrubbingRef.current = false;
     refreshTouchActive();
     isDragging.current = false;
@@ -728,6 +914,26 @@ export default function App() {
     initialDxRef.current = 0;
     initialDyRef.current = 0;
     pinchModeRef.current = 'all';
+
+    // 모든 손가락이 화면에서 완전히 떨어졌을 때만 제스처 종료 및 클릭/더블탭 판단
+    if (e.touches.length === 0) {
+      // 핀치 확대 동작을 전혀 하지 않았고, 순수하게 1인 터치 세션이었을 때만 더블탭 감지 수행
+      if (maxTouchesRef.current === 1 && !isPinchingRef.current) {
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+          e.preventDefault();
+          lastTapRef.current = 0; // 즉시 리셋하여 연속 오동작 차단
+          toggleFullscreen();
+        } else {
+          lastTapRef.current = now;
+        }
+      }
+
+      // 다음 터치 세션을 위해 초기화
+      isPinchingRef.current = false;
+      maxTouchesRef.current = 0;
+    }
     
     // 손가락을 화면에서 때면 즉시 배율 조절 % 표시 창 제거
     setZoomIndicator(prev => ({ ...prev, show: false }));
@@ -737,6 +943,7 @@ export default function App() {
       setTouchIndicator(prev => ({ ...prev, show: false }));
     }, 1200);
   };
+
 
   // 마우스 드래그를 통한 화면 이동
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -988,6 +1195,15 @@ export default function App() {
 
   // 영상 종료 시 다음 영상 자동 재생 핸들러
   const handleVideoEnded = () => {
+    if (isLoopMode) {
+      if (videoElement) {
+        videoElement.currentTime = 0;
+        videoElement.play().catch(console.error);
+      }
+      setIsPlaying(true);
+      return;
+    }
+
     if (isShuffleMode && filteredChannels.length > 1) {
       let randomIndex = Math.floor(Math.random() * filteredChannels.length);
       const currentIdx = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
@@ -1324,14 +1540,28 @@ export default function App() {
             {/* 플레이어 본체 */}
             <div 
               ref={playerContainerRef}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseLeave}
               onMouseEnter={refreshMouseHover}
+              onContextMenu={(e) => e.preventDefault()} // 모바일 롱프레스 및 우클릭 메뉴 방지
+              onClick={(e) => {
+                // 클릭이 버튼이나 컨트롤바, 진행바에서 일어났다면 무시
+                const target = e.target as HTMLElement;
+                if (target.closest('button') || target.closest('input') || target.closest('.player-controls-row')) {
+                  return;
+                }
+                
+                if (draggedRef.current) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  draggedRef.current = false;
+                } else {
+                  setIsPlaying(!isPlaying);
+                }
+              }}
+              onDoubleClick={handleVideoDoubleClick}
               className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${(!isHovered && isPlaying) ? 'hide-cursor' : ''}`}
             >
               <div 
@@ -1354,42 +1584,16 @@ export default function App() {
                     allowFullScreen
                   ></iframe>
                 ) : (
-                  <video 
-                    ref={videoRef}
-                    playsInline
-                    autoPlay
-                    controls={false}
-                    className="video-element"
-                    onClick={(e) => {
-                      if (draggedRef.current) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        draggedRef.current = false;
-                      } else {
-                        setIsPlaying(!isPlaying);
-                      }
-                    }}
-                    onDoubleClick={handleVideoDoubleClick}
-                    onTouchStart={handleVideoTouchStart}
-                    onTimeUpdate={(e) => {
-                      if (!isScrubbingRef.current) {
-                        setVideoCurrentTime(e.currentTarget.currentTime);
-                      }
-                    }}
-                    onLoadedMetadata={(e) => {
-                      setVideoDuration(e.currentTarget.duration);
-                    }}
-                    onDurationChange={(e) => {
-                      setVideoDuration(e.currentTarget.duration);
-                    }}
-                    onEnded={handleVideoEnded}
-                    onError={(e) => {
-                      const err = e.currentTarget.error;
-                      if (err && err.code !== 1) { // 1 = MEDIA_ERR_ABORTED
-                        setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)');
-                      }
-                    }}
-                  ></video>
+                  <>
+                    {/* Canvas: 비디오 프레임을 실시간으로 복사해서 화면에 출력 */}
+                    <canvas 
+                      ref={canvasRef}
+                      className="video-element"
+                    />
+                    {/* Shadow DOM 호스트: <video> 태그를 Shadow DOM 내부에 격리하여 안드로이드 브라우저의
+                        DOM 탐색 기반 다운로드 메뉴 감지를 원천 차단 */}
+                    <div ref={shadowHostRef} style={{ display: 'none' }} />
+                  </>
                 )}
               </div>
 
@@ -1434,6 +1638,15 @@ export default function App() {
                     <SkipBack className="w-4 h-4" />
                   </button>
 
+                  {/* 반복 재생 토글 버튼 */}
+                  <button 
+                    onClick={() => setIsLoopMode(!isLoopMode)} 
+                    className={`scrubber-nav-btn ${isLoopMode ? 'active-loop' : ''}`}
+                    title={isLoopMode ? "반복 재생 비활성화" : "반복 재생 활성화"}
+                  >
+                    <Repeat className="w-4 h-4" />
+                  </button>
+
                   {/* 랜덤 재생 토글 버튼 */}
                   <button 
                     onClick={() => setIsShuffleMode(!isShuffleMode)} 
@@ -1469,7 +1682,7 @@ export default function App() {
                     onChange={handleScrub}
                     className="player-scrubber-slider"
                     style={{
-                      background: `linear-gradient(to right, #ff3b30 0%, #ff3b30 ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) 100%)`
+                      backgroundImage: `linear-gradient(to right, #ff3b30 0%, #ff3b30 ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) ${(videoCurrentTime / videoDuration) * 100}%, rgba(255, 255, 255, 0.25) 100%)`
                     }}
                   />
                   <span className="scrubber-time">{formatTime(videoDuration)}</span>
@@ -1698,7 +1911,7 @@ export default function App() {
 
       {/* 투명 저작권 표시 (맨 아래 배치) */}
       <div className="ott-copyright-text">
-        <i>Copyright @ 2026 Shinbosung All Right Reserved.</i>
+        <i>Copyright @ 2026 Shinbosung All Right Reserved. (v1.3.3 - 핀치 오동작 개선 완료)</i>
       </div>
 
     </div>

@@ -252,6 +252,10 @@ body, html, #root {
   align-items: center;
   justify-content: center;
   cursor: grab;
+  touch-action: none; /* 모바일 기기 기본 줌/이동 방지 및 커스텀 제스처 활성화 */
+  -webkit-touch-callout: none; /* iOS 롱프레스 팝업 방지 */
+  -webkit-user-select: none;   /* 텍스트/이미지 선택 방지 */
+  user-select: none;
 }
 
 .player-wrapper.grabbing {
@@ -272,6 +276,10 @@ body, html, #root {
   width: 100%;
   height: 100%;
   object-fit: fill; /* 가득 찬 화면으로 방영되도록 설정 */
+  -webkit-touch-callout: none; /* iOS 롱프레스 다운로드 팝업 방지 */
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none; /* 비디오 엘리먼트 직접 터치 차단 -> 모바일 다운로드 팝업 방지 */
 }
 
 /* 풀다운/드롭다운 스타일 */
@@ -1853,54 +1861,71 @@ body, html, #root {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
+  height: 24px; /* Generous clickable/touch target height */
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 4px; /* Visual track height */
   border-radius: 2px;
   outline: none;
   cursor: pointer;
-  transition: height 0.15s ease;
+  transition: background-size 0.15s ease;
 }
 
 .player-scrubber-slider:hover {
-  height: 6px;
+  background-size: 100% 6px; /* Thicker track on hover */
 }
 
 .player-scrubber-slider::-webkit-slider-runnable-track {
   width: 100%;
   height: 100%;
   border-radius: 2px;
+  background: transparent;
 }
 
 .player-scrubber-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ff3b30;
-  box-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+  box-shadow: 0 0 10px rgba(255, 59, 48, 0.6);
   cursor: pointer;
-  margin-top: -4px;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  margin-top: 4px; /* Centers 16px thumb in 24px container: (24 - 16) / 2 */
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.player-scrubber-slider:hover::-webkit-slider-thumb {
-  transform: scale(1.3);
-  margin-top: -3px;
+.player-scrubber-slider:hover::-webkit-slider-thumb,
+.player-scrubber-slider:active::-webkit-slider-thumb {
+  transform: scale(1.5); /* Scales thumb size on interaction */
+  background: #ff4d4d;
+  box-shadow: 0 0 14px rgba(255, 59, 48, 0.8);
 }
 
 .player-scrubber-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ff3b30;
-  box-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+  box-shadow: 0 0 10px rgba(255, 59, 48, 0.6);
   cursor: pointer;
   border: none;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.player-scrubber-slider:hover::-moz-range-thumb {
-  transform: scale(1.3);
+.player-scrubber-slider:hover::-moz-range-thumb,
+.player-scrubber-slider:active::-moz-range-thumb {
+  transform: scale(1.5);
+  background: #ff4d4d;
+  box-shadow: 0 0 14px rgba(255, 59, 48, 0.8);
+}
+
+.player-scrubber-slider::-moz-range-track {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
 }
 
 /* 실행 URL 표시 스타일 */
@@ -1975,13 +2000,15 @@ body, html, #root {
   cursor: not-allowed;
 }
 
-.scrubber-nav-btn.active-shuffle {
+.scrubber-nav-btn.active-shuffle,
+.scrubber-nav-btn.active-loop {
   color: #ff3b30;
   background: rgba(255, 59, 48, 0.15);
   box-shadow: 0 0 8px rgba(255, 59, 48, 0.3);
 }
 
-.scrubber-nav-btn.active-shuffle:hover {
+.scrubber-nav-btn.active-shuffle:hover,
+.scrubber-nav-btn.active-loop:hover {
   background: rgba(255, 59, 48, 0.25);
 }
 
