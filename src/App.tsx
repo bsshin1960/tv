@@ -195,6 +195,7 @@ export default function App() {
   const categoryRef = useRef<HTMLDivElement>(null);
   const subCategoryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // --- 이펙트 ---
   
@@ -342,9 +343,6 @@ export default function App() {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
-      }
-      if (activeChannel.streamUrl && activeChannel.streamUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(activeChannel.streamUrl);
       }
     };
   }, [activeChannel, isLoadingM3u]);
@@ -839,70 +837,110 @@ export default function App() {
     }
   };
 
-  // 사용자 지정 M3U / MP4 파일 업로드
+  // 사용자 지정 M3U / 동영상 파일/폴더 업로드
   const handleUploadM3u = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsLoadingM3u(true);
 
-    const isMp4 = file.name.toLowerCase().endsWith('.mp4');
-    if (isMp4) {
+    // 동영상 파일 필터링
+    const videoFiles = Array.from(files).filter(file => {
+      const name = file.name.toLowerCase();
+      return name.endsWith('.mp4') || name.endsWith('.mkv') || name.endsWith('.avi') || name.endsWith('.mov') || name.endsWith('.webm') || name.endsWith('.m4v');
+    });
+
+    if (videoFiles.length > 0) {
       try {
-        const fileUrl = URL.createObjectURL(file);
-        const localVideoChannel: Channel = {
-          id: 'local-mp4',
-          channelNumber: 9999,
-          name: file.name,
-          category: 'M3U 방송',
-          logo: '🎞️',
-          thumbnail: 'https://images.unsplash.com/photo-1461151304267-38cd890855f1?w=500&auto=format&fit=crop&q=80',
-          streamUrl: fileUrl,
-          streamType: 'mp4',
-          epg: [
-            { startTime: '00:00', endTime: '24:00', title: file.name, description: '기기에서 직접 재생하는 로컬 동영상 파일입니다.', rating: 'ALL' }
-          ],
-          isM3u: true
-        };
-        setM3uChannels([localVideoChannel]);
+        // 파일명을 숫자가 인식되는 자연스러운 정렬 순서로 정렬 (예: ep1, ep2, ep10...)
+        const sortedFiles = videoFiles.sort((a, b) => 
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+
+        const localVideoChannels: Channel[] = sortedFiles.map((file, index) => {
+          const fileUrl = URL.createObjectURL(file);
+          return {
+            id: `local-mp4-${file.name}-${index}`,
+            channelNumber: 9999 + index,
+            name: file.name.replace(/\.[^/.]+$/, ""), // 확장자 제거
+            category: 'M3U 방송',
+            logo: '🎞️',
+            thumbnail: 'https://images.unsplash.com/photo-1461151304267-38cd890855f1?w=500&auto=format&fit=crop&q=80',
+            streamUrl: fileUrl,
+            streamType: 'mp4',
+            epg: [
+              { startTime: '00:00', endTime: '24:00', title: file.name, description: '기기에서 직접 재생하는 로컬 동영상 파일입니다.', rating: 'ALL' }
+            ],
+            isM3u: true
+          };
+        });
+
+        setM3uChannels(localVideoChannels);
         setSelectedCategory('M3U 방송');
         setSelectedM3uGroup('전체');
         setSearchQuery('');
-        setActiveChannel(localVideoChannel);
-        setIsPlaying(true);
+        setVisibleCount(60);
+
+        if (localVideoChannels.length > 0) {
+          setActiveChannel(localVideoChannels[0]);
+          setIsPlaying(true);
+        }
       } catch (error: any) {
-        alert(`MP4 로드 실패: ${error.message}`);
+        alert(`동영상 로드 실패: ${error.message}`);
       } finally {
         setIsLoadingM3u(false);
       }
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = parseM3U(text);
-        setM3uChannels(parsed);
-        setSelectedCategory('M3U 방송');
-        setSelectedM3uGroup('전체');
-        setSearchQuery('');
-        setVisibleCount(60);
-        if (parsed.length > 0) {
-          setActiveChannel(parsed[0]);
-          setIsPlaying(true);
+    // 재생 가능한 비디오 파일이 없으면 M3U 파일 탐색
+    const m3uFiles = Array.from(files).filter(file => {
+      const name = file.name.toLowerCase();
+      return name.endsWith('.m3u') || name.endsWith('.m3u8');
+    });
+
+    if (m3uFiles.length > 0) {
+      const file = m3uFiles[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string;
+          const parsed = parseM3U(text);
+          setM3uChannels(parsed);
+          setSelectedCategory('M3U 방송');
+          setSelectedM3uGroup('전체');
+          setSearchQuery('');
+          setVisibleCount(60);
+          if (parsed.length > 0) {
+            setActiveChannel(parsed[0]);
+            setIsPlaying(true);
+          }
+        } catch (error: any) {
+          alert(`M3U 파싱 실패: ${error.message}`);
+        } finally {
+          setIsLoadingM3u(false);
         }
-      } catch (error: any) {
-        alert(`M3U 파싱 실패: ${error.message}`);
-      } finally {
+      };
+      reader.onerror = () => {
+        alert('파일 읽기 에러가 발생했습니다.');
         setIsLoadingM3u(false);
-      }
-    };
-    reader.onerror = () => {
-      alert('파일 읽기 에러가 발생했습니다.');
-      setIsLoadingM3u(false);
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    alert('재생 가능한 동영상 파일(.mp4, .mkv 등) 또는 M3U 파일이 없습니다.');
+    setIsLoadingM3u(false);
+  };
+
+  // 영상 종료 시 다음 영상 자동 재생 핸들러
+  const handleVideoEnded = () => {
+    const currentIndex = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+    if (currentIndex !== -1 && currentIndex + 1 < filteredChannels.length) {
+      const nextChannel = filteredChannels[currentIndex + 1];
+      setActiveChannel(nextChannel);
+      setIsPlaying(true);
+    }
   };
 
   // M3U 내 하위 그룹들 추출
@@ -1069,7 +1107,15 @@ export default function App() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleUploadM3u} 
-                accept={/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'application/octet-stream' : '.m3u,.m3u8,.mp4'} 
+                accept={/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'application/octet-stream' : '.m3u,.m3u8,.mp4,.mkv,.avi,.mov,.webm,.m4v'} 
+                multiple
+                style={{ display: 'none' }} 
+              />
+              <input 
+                type="file" 
+                ref={folderInputRef} 
+                onChange={handleUploadM3u} 
+                {...{ webkitdirectory: "", directory: "" }} 
                 style={{ display: 'none' }} 
               />
               
@@ -1237,6 +1283,7 @@ export default function App() {
                     onDurationChange={(e) => {
                       setVideoDuration(e.currentTarget.duration);
                     }}
+                    onEnded={handleVideoEnded}
                     onError={() => setStreamError('동영상 스트림 로드 실패 (차단되었거나 오프라인)')}
                   ></video>
                 )}
@@ -1495,19 +1542,31 @@ export default function App() {
               </div>
             )}
 
-            <div className="upload-modal-buttons">
+            <div className="upload-modal-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => {
                   setIsUploadModalOpen(false);
                   fileInputRef.current?.click();
                 }}
                 className="m3u-btn outline"
+                style={{ flex: 1, minWidth: '110px' }}
               >
                 기기 파일 선택
               </button>
               <button 
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  folderInputRef.current?.click();
+                }}
+                className="m3u-btn outline"
+                style={{ flex: 1, minWidth: '110px' }}
+              >
+                기기 폴더 선택
+              </button>
+              <button 
                 onClick={() => setIsUploadModalOpen(false)}
                 className="m3u-btn text-only"
+                style={{ marginLeft: 'auto' }}
               >
                 취소
               </button>
