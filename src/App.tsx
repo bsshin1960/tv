@@ -195,6 +195,7 @@ export default function App() {
   const categoryRef = useRef<HTMLDivElement>(null);
   const subCategoryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // --- 이펙트 ---
   
@@ -1110,6 +1111,13 @@ export default function App() {
                 multiple
                 style={{ display: 'none' }} 
               />
+              <input 
+                type="file" 
+                ref={folderInputRef} 
+                onChange={handleUploadM3u} 
+                {...{ webkitdirectory: "", directory: "" }} 
+                style={{ display: 'none' }} 
+              />
               
               <button 
                 onClick={handleUploadClick} 
@@ -1117,8 +1125,8 @@ export default function App() {
                 className="m3u-btn outline"
                 style={{ padding: '6px 12px', fontSize: '13px', height: '34px', display: 'flex', alignItems: 'center', gap: '12px', lineHeight: '1', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
-                <span className="hidden-mobile">M3U 파일 업로드</span>
-                <span className="visible-mobile">업로드</span>
+                <span className="hidden-mobile">기기 파일 불러오기</span>
+                <span className="visible-mobile">불러오기</span>
                 <Upload className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1534,19 +1542,31 @@ export default function App() {
               </div>
             )}
 
-            <div className="upload-modal-buttons">
+            <div className="upload-modal-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => {
                   setIsUploadModalOpen(false);
                   fileInputRef.current?.click();
                 }}
                 className="m3u-btn outline"
+                style={{ flex: 1, minWidth: '110px' }}
               >
                 기기 파일 선택
               </button>
               <button 
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  folderInputRef.current?.click();
+                }}
+                className="m3u-btn outline"
+                style={{ flex: 1, minWidth: '110px' }}
+              >
+                기기 폴더 선택
+              </button>
+              <button 
                 onClick={() => setIsUploadModalOpen(false)}
                 className="m3u-btn text-only"
+                style={{ marginLeft: 'auto' }}
               >
                 취소
               </button>
