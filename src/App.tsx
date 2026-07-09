@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, 
   Sun, Moon, Heart, 
-  Minimize, ChevronDown, Search, Upload, X, RefreshCw
+  Minimize, ChevronDown, Search, Upload, X, RefreshCw,
+  Shuffle, SkipBack, SkipForward
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS } from './data/channels';
@@ -167,6 +168,9 @@ export default function App() {
   // 화면 배율 초기화 플로팅 버튼 상태 및 트리거
   const [showResetOverlay, setShowResetOverlay] = useState<boolean>(false);
   const resetOverlayTimeoutRef = useRef<any>(null);
+
+  // 랜덤 재생 모드 상태
+  const [isShuffleMode, setIsShuffleMode] = useState<boolean>(false);
 
   const triggerResetOverlay = () => {
     setShowResetOverlay(true);
@@ -576,9 +580,28 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
 
+    // 마우스 커서가 윈도우 밖으로 나가거나 해제될 때 드래그 오동작(붙어 다님)을 해제하는 글로벌 리스너
+    const handleGlobalMouseUp = () => {
+      isMouseDraggingRef.current = false;
+      setIsMouseDragging(false);
+      isScrubbingRef.current = false;
+    };
+    const handleGlobalMouseLeave = (e: MouseEvent) => {
+      if (e.target === document || e.target === document.documentElement || !e.relatedTarget) {
+        isMouseDraggingRef.current = false;
+        setIsMouseDragging(false);
+        isScrubbingRef.current = false;
+      }
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('mouseleave', handleGlobalMouseLeave);
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('mouseleave', handleGlobalMouseLeave);
     };
   }, []);
 
@@ -965,11 +988,22 @@ export default function App() {
 
   // 영상 종료 시 다음 영상 자동 재생 핸들러
   const handleVideoEnded = () => {
-    const currentIndex = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
-    if (currentIndex !== -1 && currentIndex + 1 < filteredChannels.length) {
-      const nextChannel = filteredChannels[currentIndex + 1];
+    if (isShuffleMode && filteredChannels.length > 1) {
+      let randomIndex = Math.floor(Math.random() * filteredChannels.length);
+      const currentIdx = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+      if (randomIndex === currentIdx && filteredChannels.length > 1) {
+        randomIndex = (randomIndex + 1) % filteredChannels.length;
+      }
+      const nextChannel = filteredChannels[randomIndex];
       setActiveChannel(nextChannel);
       setIsPlaying(true);
+    } else {
+      const currentIndex = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+      if (currentIndex !== -1 && currentIndex + 1 < filteredChannels.length) {
+        const nextChannel = filteredChannels[currentIndex + 1];
+        setActiveChannel(nextChannel);
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -1017,6 +1051,48 @@ export default function App() {
       return true;
     });
   }, [allChannels, selectedCategory, selectedM3uGroup, bookmarks, searchQuery]);
+
+  // 이전/다음 영상 네비게이션 인덱스 및 핸들러 정의
+  const currentIndex = useMemo(() => {
+    return filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+  }, [filteredChannels, activeChannel]);
+
+  const hasPreviousChannel = currentIndex > 0;
+  const hasNextChannel = currentIndex !== -1 && currentIndex + 1 < filteredChannels.length;
+
+  const handlePlayPrevious = () => {
+    if (isShuffleMode && filteredChannels.length > 1) {
+      let randomIndex = Math.floor(Math.random() * filteredChannels.length);
+      const currentIdx = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+      if (randomIndex === currentIdx && filteredChannels.length > 1) {
+        randomIndex = (randomIndex + 1) % filteredChannels.length;
+      }
+      const prevChannel = filteredChannels[randomIndex];
+      setActiveChannel(prevChannel);
+      setIsPlaying(true);
+    } else if (hasPreviousChannel) {
+      const prevChannel = filteredChannels[currentIndex - 1];
+      setActiveChannel(prevChannel);
+      setIsPlaying(true);
+    }
+  };
+
+  const handlePlayNext = () => {
+    if (isShuffleMode && filteredChannels.length > 1) {
+      let randomIndex = Math.floor(Math.random() * filteredChannels.length);
+      const currentIdx = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
+      if (randomIndex === currentIdx && filteredChannels.length > 1) {
+        randomIndex = (randomIndex + 1) % filteredChannels.length;
+      }
+      const nextChannel = filteredChannels[randomIndex];
+      setActiveChannel(nextChannel);
+      setIsPlaying(true);
+    } else if (hasNextChannel) {
+      const nextChannel = filteredChannels[currentIndex + 1];
+      setActiveChannel(nextChannel);
+      setIsPlaying(true);
+    }
+  };
 
   // 그리드 성능 유지를 위한 부분 렌더링 리스트
   const visibleChannels = useMemo(() => {
@@ -1348,6 +1424,25 @@ export default function App() {
                     refreshTouchActive();
                   }}
                 >
+                  {/* 이전 영상 버튼 */}
+                  <button 
+                    onClick={handlePlayPrevious} 
+                    className="scrubber-nav-btn"
+                    title="이전 영상"
+                    disabled={isShuffleMode ? filteredChannels.length <= 1 : !hasPreviousChannel}
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+
+                  {/* 랜덤 재생 토글 버튼 */}
+                  <button 
+                    onClick={() => setIsShuffleMode(!isShuffleMode)} 
+                    className={`scrubber-nav-btn ${isShuffleMode ? 'active-shuffle' : ''}`}
+                    title={isShuffleMode ? "순차 재생으로 변경" : "랜덤 재생 활성화"}
+                  >
+                    <Shuffle className="w-4 h-4" />
+                  </button>
+
                   <span className="scrubber-time">{formatTime(videoCurrentTime)}</span>
                   <input 
                     type="range"
@@ -1378,6 +1473,16 @@ export default function App() {
                     }}
                   />
                   <span className="scrubber-time">{formatTime(videoDuration)}</span>
+
+                  {/* 다음 영상 버튼 */}
+                  <button 
+                    onClick={handlePlayNext} 
+                    className="scrubber-nav-btn"
+                    title="다음 영상"
+                    disabled={isShuffleMode ? filteredChannels.length <= 1 : !hasNextChannel}
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
                 </div>
               )}
 

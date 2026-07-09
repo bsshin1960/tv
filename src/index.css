@@ -1948,3 +1948,39 @@ body, html, #root {
     text-overflow: ellipsis;
   }
 }
+
+/* 수평 스크롤바 이전/다음/랜덤 영상 네비게이션 버튼 */
+.scrubber-nav-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.scrubber-nav-btn:hover:not(:disabled) {
+  color: #ff3b30;
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.15);
+}
+
+.scrubber-nav-btn:disabled {
+  color: rgba(255, 255, 255, 0.25);
+  cursor: not-allowed;
+}
+
+.scrubber-nav-btn.active-shuffle {
+  color: #ff3b30;
+  background: rgba(255, 59, 48, 0.15);
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.3);
+}
+
+.scrubber-nav-btn.active-shuffle:hover {
+  background: rgba(255, 59, 48, 0.25);
+}
