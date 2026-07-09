@@ -1332,7 +1332,7 @@ export default function App() {
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseLeave}
               onMouseEnter={refreshMouseHover}
-              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''}`}
+              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${(!isHovered && isPlaying) ? 'hide-cursor' : ''}`}
             >
               <div 
                 style={{ 

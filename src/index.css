@@ -1984,3 +1984,12 @@ body, html, #root {
 .scrubber-nav-btn.active-shuffle:hover {
   background: rgba(255, 59, 48, 0.25);
 }
+
+/* 비디오 재생 및 마우스 미작동 시 커서 숨김 처리 */
+.player-wrapper.hide-cursor {
+  cursor: none !important;
+}
+
+.player-wrapper.hide-cursor * {
+  cursor: none !important;
+}
