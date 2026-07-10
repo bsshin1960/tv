@@ -2067,3 +2067,37 @@ body, html, #root {
     height: 10px !important;
   }
 }
+
+/* 휴대폰 가로 모드(Landscape)일 때 사이드바와 비디오를 좌우 배치하여 비디오 노출 */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .ott-header {
+    padding: 4px 10px !important;
+  }
+  
+  .ott-main {
+    padding: 4px 10px 0px 10px !important;
+    gap: 4px !important;
+  }
+
+  .player-main-row {
+    flex-direction: row !important;
+    height: 100% !important;
+    flex: 1 !important;
+  }
+  
+  .player-sidebar-list {
+    width: 220px !important;
+    height: 100% !important;
+    flex: none !important;
+    border-right: 1px solid var(--border-color) !important;
+    border-bottom: none !important;
+  }
+  
+  .player-wrapper {
+    flex: 1 !important;
+    width: auto !important;
+    height: 100% !important;
+    aspect-ratio: auto !important;
+    flex-shrink: 1 !important;
+  }
+}
