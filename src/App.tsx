@@ -11,7 +11,7 @@ import type { Channel, Program } from './data/channels';
 import { parseM3U } from './utils/m3uParser';
 // Reverted to clean 09b3e07 state (No custom bottom-sheet)
 const PRELOADED_FILES = [
-  { name: 'Korea(2).m3u', label: '한국 방송 목록' },
+  { name: 'Korea.m3u', label: '한국 방송 목록' },
   { name: 'Country.m3u', label: '국가별 방송 목록' },
   { name: 'Language.m3u', label: '언어별 방송 목록' },
   { name: 'Category.m3u', label: '카테고리별 방송 목록' },
@@ -61,7 +61,7 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [inputFileName, setInputFileName] = useState<string>('');
   const [selectedPresetFile, setSelectedPresetFile] = useState<string>(() => {
-    return localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+    return localStorage.getItem('tv-selected-preset') || 'Korea.m3u';
   });
   const [isCustomInput, setIsCustomInput] = useState<boolean>(false);
   
@@ -343,7 +343,7 @@ export default function App() {
 
   // 시작 시 이전에 선택한 M3U 파일 자동 로딩
   useEffect(() => {
-    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea.m3u';
     loadM3uFile(savedPreset);
   }, []);
 
@@ -1103,7 +1103,7 @@ export default function App() {
 
   const handleUploadClick = () => {
     setIsUploadModalOpen(true);
-    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea(2).m3u';
+    const savedPreset = localStorage.getItem('tv-selected-preset') || 'Korea.m3u';
     
     // 저장된 프리셋이 내장 프리셋인지 여부 확인
     const isPresetExist = PRELOADED_FILES.some(f => f.name === savedPreset);
@@ -1922,7 +1922,7 @@ export default function App() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input 
                     type="text" 
-                    placeholder="예: Korea(2).m3u" 
+                    placeholder="예: Korea.m3u" 
                     value={inputFileName}
                     onChange={(e) => setInputFileName(e.target.value)}
                     className="upload-modal-input"
