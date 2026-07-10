@@ -1042,8 +1042,16 @@ export default function App() {
       localStorage.setItem('tv-selected-preset', fileName);
 
       if (parsed.length > 0) {
-        // 프리셋이 로드되면 항상 첫 번째 채널을 자동 재생
-        setActiveChannel(parsed[0]);
+        // 프리셋이 로드되면 기본적으로 첫 번째 채널을 설정하되,
+        // 한국 방송 목록(Korea.m3u)인 경우 'EBS E' 채널을 찾아 기본으로 설정합니다.
+        let defaultChannel = parsed[0];
+        if (fileName === 'Korea.m3u') {
+          const ebsE = parsed.find(ch => ch.name.includes('EBS E'));
+          if (ebsE) {
+            defaultChannel = ebsE;
+          }
+        }
+        setActiveChannel(defaultChannel);
         setIsPlaying(true);
       }
     } catch (error: any) {
