@@ -2101,3 +2101,132 @@ body, html, #root {
     flex-shrink: 1 !important;
   }
 }
+
+/* 마우스 전용 화면 조작 패널 */
+.screen-control-panel {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  opacity: 0.1; /* 기본 투명도 90% (불투명도 10%) */
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 마우스 커서 접근 시 투명도 50%로 변경 (불투명도 50%) */
+.screen-control-panel:hover {
+  opacity: 0.5; /* 투명도 50% */
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.screen-ctrl-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.screen-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.screen-ctrl-btn:active {
+  transform: scale(0.9);
+}
+
+/* 서브 라벨이 있는 버튼 (+ / - 기호 표시용) */
+.screen-ctrl-btn.with-sub {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen-ctrl-btn .btn-sub-label {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #a5b4fc; /* light indigo */
+  line-height: 1;
+}
+
+/* 구분선 */
+.screen-ctrl-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 3px 4px;
+}
+
+/* 초기화 버튼 특수 효과 */
+.screen-ctrl-btn.reset {
+  color: #fca5a5; /* light red */
+}
+.screen-ctrl-btn.reset:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+}
+
+/* PC 전체화면(fullscreen)일 때 화면 조작 패널 크기 및 비율 자동 확대 */
+.player-wrapper:fullscreen .screen-control-panel,
+.player-wrapper:-webkit-full-screen .screen-control-panel {
+  right: 24px;
+  gap: 8px;
+  padding: 12px 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 16px;
+  border-color: rgba(255, 255, 255, 0.12);
+  opacity: 0.15; /* 전체화면 기본 투명도 85% */
+}
+
+.player-wrapper:fullscreen .screen-control-panel:hover,
+.player-wrapper:-webkit-full-screen .screen-control-panel:hover {
+  opacity: 0.65; /* 전체화면 커서 접근 시 투명도 35% (불투명도 65%) */
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.player-wrapper:fullscreen .screen-ctrl-btn,
+.player-wrapper:-webkit-full-screen .screen-ctrl-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.player-wrapper:fullscreen .screen-ctrl-btn svg,
+.player-wrapper:-webkit-full-screen .screen-ctrl-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.player-wrapper:fullscreen .screen-ctrl-btn .btn-sub-label,
+.player-wrapper:-webkit-full-screen .screen-ctrl-btn .btn-sub-label {
+  font-size: 11px;
+  bottom: 2px;
+  right: 4px;
+}
+
+.player-wrapper:fullscreen .screen-ctrl-divider,
+.player-wrapper:-webkit-full-screen .screen-ctrl-divider {
+  margin: 4px 6px;
+}

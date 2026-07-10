@@ -3,7 +3,8 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, 
   Sun, Moon, Heart, 
   Minimize, ChevronDown, Search, Upload, X, RefreshCw,
-  Shuffle, SkipBack, SkipForward, Repeat
+  Shuffle, SkipBack, SkipForward, Repeat,
+  ZoomIn, ZoomOut, RotateCw, MoveHorizontal, MoveVertical
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { CHANNELS } from './data/channels';
@@ -95,6 +96,7 @@ export default function App() {
   const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [isHoveringPanel, setIsHoveringPanel] = useState<boolean>(false);
   const [isTouchActive, setIsTouchActive] = useState<boolean>(false);
   const touchTimeoutRef = useRef<any>(null);
   const mouseTimeoutRef = useRef<any>(null);
@@ -1022,6 +1024,23 @@ export default function App() {
     }
   };
 
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    triggerResetOverlay();
+    // deltaY < 0 indicates scroll up, deltaY > 0 indicates scroll down
+    const factor = e.deltaY < 0 ? 0.05 : -0.05;
+    
+    setScaleX(prevX => {
+      const newX = Math.min(3.0, Math.max(0.5, prevX + factor));
+      setScaleY(prevY => {
+        const newY = Math.min(3.0, Math.max(0.5, prevY + factor));
+        showZoomFeedback(newX, newY);
+        return newY;
+      });
+      return newX;
+    });
+  };
+
   // 내장 M3U 파일 공통 로드 함수
   const loadM3uFile = async (fileName: string) => {
     setIsLoadingM3u(true);
@@ -1608,6 +1627,7 @@ export default function App() {
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseLeave}
               onMouseEnter={refreshMouseHover}
+              onWheel={handleWheel}
               onContextMenu={(e) => e.preventDefault()} // 모바일 롱프레스 및 우클릭 메뉴 방지
               onClick={(e) => {
                 // 클릭이 버튼이나 컨트롤바, 진행바에서 일어났다면 무시
@@ -1625,7 +1645,7 @@ export default function App() {
                 }
               }}
               onDoubleClick={handleVideoDoubleClick}
-              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${(!isHovered && isPlaying) ? 'hide-cursor' : ''}`}
+              className={`player-wrapper ${isMouseDragging ? 'grabbing' : ''} ${(!isHovered && !isHoveringPanel && isPlaying) ? 'hide-cursor' : ''}`}
             >
               <div 
                 style={{ 
@@ -1805,6 +1825,144 @@ export default function App() {
                   기본 화면으로 전환
                 </button>
               )}
+
+              {/* 마우스 전용 화면 조작 패널 */}
+              <div 
+                className="screen-control-panel"
+                onMouseEnter={() => setIsHoveringPanel(true)}
+                onMouseLeave={() => {
+                  setIsHoveringPanel(false);
+                  refreshMouseHover();
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+              >
+                {/* 전체 확대 */}
+                <button 
+                  onClick={() => {
+                    const newX = Math.min(3.0, scaleX + 0.05);
+                    const newY = Math.min(3.0, scaleY + 0.05);
+                    setScaleX(newX);
+                    setScaleY(newY);
+                    showZoomFeedback(newX, newY);
+                    triggerResetOverlay();
+                  }}
+                  title="전체 확대"
+                  className="screen-ctrl-btn"
+                >
+                  <ZoomIn size={15} />
+                </button>
+                {/* 전체 축소 */}
+                <button 
+                  onClick={() => {
+                    const newX = Math.max(0.5, scaleX - 0.05);
+                    const newY = Math.max(0.5, scaleY - 0.05);
+                    setScaleX(newX);
+                    setScaleY(newY);
+                    showZoomFeedback(newX, newY);
+                    triggerResetOverlay();
+                  }}
+                  title="전체 축소"
+                  className="screen-ctrl-btn"
+                >
+                  <ZoomOut size={15} />
+                </button>
+
+                <div className="screen-ctrl-divider" />
+
+                {/* 좌우 확대 */}
+                <button 
+                  onClick={() => {
+                    const newX = Math.min(3.0, scaleX + 0.05);
+                    setScaleX(newX);
+                    showZoomFeedback(newX, scaleY);
+                    triggerResetOverlay();
+                  }}
+                  title="좌우 확대"
+                  className="screen-ctrl-btn with-sub"
+                >
+                  <MoveHorizontal size={14} />
+                  <span className="btn-sub-label">+</span>
+                </button>
+                {/* 좌우 축소 */}
+                <button 
+                  onClick={() => {
+                    const newX = Math.max(0.5, scaleX - 0.05);
+                    setScaleX(newX);
+                    showZoomFeedback(newX, scaleY);
+                    triggerResetOverlay();
+                  }}
+                  title="좌우 축소"
+                  className="screen-ctrl-btn with-sub"
+                >
+                  <MoveHorizontal size={14} />
+                  <span className="btn-sub-label">-</span>
+                </button>
+
+                <div className="screen-ctrl-divider" />
+
+                {/* 상하 확대 */}
+                <button 
+                  onClick={() => {
+                    const newY = Math.min(3.0, scaleY + 0.05);
+                    setScaleY(newY);
+                    showZoomFeedback(scaleX, newY);
+                    triggerResetOverlay();
+                  }}
+                  title="상하 확대"
+                  className="screen-ctrl-btn with-sub"
+                >
+                  <MoveVertical size={14} />
+                  <span className="btn-sub-label">+</span>
+                </button>
+                {/* 상하 축소 */}
+                <button 
+                  onClick={() => {
+                    const newY = Math.max(0.5, scaleY - 0.05);
+                    setScaleY(newY);
+                    showZoomFeedback(scaleX, newY);
+                    triggerResetOverlay();
+                  }}
+                  title="상하 축소"
+                  className="screen-ctrl-btn with-sub"
+                >
+                  <MoveVertical size={14} />
+                  <span className="btn-sub-label">-</span>
+                </button>
+
+                <div className="screen-ctrl-divider" />
+
+                {/* 시계방향 회전 */}
+                <button 
+                  onClick={() => {
+                    const newRotation = (rotation + 90) % 360;
+                    setRotation(newRotation);
+                    showRotationFeedback(newRotation);
+                    triggerResetOverlay();
+                  }}
+                  title="90도 회전"
+                  className="screen-ctrl-btn"
+                >
+                  <RotateCw size={14} />
+                </button>
+
+                {/* 초기화 */}
+                <button 
+                  onClick={() => {
+                    setScaleX(1.0);
+                    setScaleY(1.0);
+                    setRotation(0);
+                    setPanOffset({ x: 0, y: 0 });
+                    showZoomFeedback(1.0, 1.0);
+                    triggerResetOverlay();
+                  }}
+                  title="화면 초기화"
+                  className="screen-ctrl-btn reset"
+                >
+                  <RefreshCw size={13} />
+                </button>
+              </div>
 
               {/* 스트리밍 오류 발생 시 오버레이 화면 */}
               {streamError && (
