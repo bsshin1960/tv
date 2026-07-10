@@ -15,7 +15,7 @@ const PRELOADED_FILES = [
   { name: 'Country.m3u', label: '국가별 방송 목록' },
   { name: 'Language.m3u', label: '언어별 방송 목록' },
   { name: 'Category.m3u', label: '카테고리별 방송 목록' },
-  { name: 'Adult_All_Excepted Duplicate.m3u', label: '성인 방송 목록 (중복 제거)' },
+  { name: 'Adult.m3u', label: '성인 방송 목록 (중복 제거)' },
   { name: 'All_Broadcasting.m3u', label: '전체 방송 목록' },
   { name: 'World 2025.m3u', label: '월드 2025 방송 목록' }
 ];
