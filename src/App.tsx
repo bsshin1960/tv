@@ -204,6 +204,7 @@ export default function App() {
   const categoryRef = useRef<HTMLDivElement>(null);
   const subCategoryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleVideoEndedRef = useRef<() => void>(() => {});
 
   // --- 이펙트 ---
   
@@ -288,7 +289,9 @@ export default function App() {
     video.addEventListener('durationchange', () => {
       setVideoDuration(video.duration);
     });
-    video.addEventListener('ended', handleVideoEnded);
+    video.addEventListener('ended', () => {
+      handleVideoEndedRef.current();
+    });
     video.addEventListener('error', () => {
       const err = video.error;
       if (err && err.code !== 1) {
@@ -436,7 +439,18 @@ export default function App() {
           }
         });
       } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-        videoElement.src = activeChannel.streamUrl;
+        let isSameSrc = false;
+        try {
+          const absoluteTarget = new URL(activeChannel.streamUrl, window.location.href).href;
+          isSameSrc = (videoElement.src === absoluteTarget);
+        } catch (_) {
+          isSameSrc = (videoElement.src === activeChannel.streamUrl);
+        }
+
+        if (!isSameSrc) {
+          videoElement.src = activeChannel.streamUrl;
+        }
+
         const handleHlsMetadata = () => {
           setStreamError(null);
           if (isPlaying && active) {
@@ -447,11 +461,27 @@ export default function App() {
             });
           }
         };
-        videoElement.addEventListener('loadedmetadata', handleHlsMetadata, { once: true });
+
+        if (isSameSrc && videoElement.readyState >= 1) {
+          handleHlsMetadata();
+        } else {
+          videoElement.addEventListener('loadedmetadata', handleHlsMetadata, { once: true });
+        }
       }
     } else {
-      videoElement.src = activeChannel.streamUrl;
-      videoElement.load();
+      let isSameSrc = false;
+      try {
+        const absoluteTarget = new URL(activeChannel.streamUrl, window.location.href).href;
+        isSameSrc = (videoElement.src === absoluteTarget);
+      } catch (_) {
+        isSameSrc = (videoElement.src === activeChannel.streamUrl);
+      }
+
+      if (!isSameSrc) {
+        videoElement.src = activeChannel.streamUrl;
+        videoElement.load();
+      }
+
       const handleCanPlay = () => {
         if (!active) return;
         if (isPlaying) {
@@ -462,8 +492,13 @@ export default function App() {
           });
         }
       };
-      videoElement.addEventListener('canplay', handleCanPlay, { once: true });
-      canPlayListener = handleCanPlay;
+
+      if (isSameSrc && videoElement.readyState >= 2) {
+        handleCanPlay();
+      } else {
+        videoElement.addEventListener('canplay', handleCanPlay, { once: true });
+        canPlayListener = handleCanPlay;
+      }
     }
 
     return () => {
@@ -1204,24 +1239,44 @@ export default function App() {
       return;
     }
 
+    let nextChannel: Channel | null = null;
+
     if (isShuffleMode && filteredChannels.length > 1) {
       let randomIndex = Math.floor(Math.random() * filteredChannels.length);
       const currentIdx = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
       if (randomIndex === currentIdx && filteredChannels.length > 1) {
         randomIndex = (randomIndex + 1) % filteredChannels.length;
       }
-      const nextChannel = filteredChannels[randomIndex];
-      setActiveChannel(nextChannel);
-      setIsPlaying(true);
+      nextChannel = filteredChannels[randomIndex];
     } else {
       const currentIndex = filteredChannels.findIndex(ch => ch.id === activeChannel.id);
-      if (currentIndex !== -1 && currentIndex + 1 < filteredChannels.length) {
-        const nextChannel = filteredChannels[currentIndex + 1];
-        setActiveChannel(nextChannel);
-        setIsPlaying(true);
+      if (currentIndex !== -1 && filteredChannels.length > 0) {
+        const nextIndex = (currentIndex + 1) % filteredChannels.length;
+        nextChannel = filteredChannels[nextIndex];
+      }
+    }
+
+    if (nextChannel) {
+      setActiveChannel(nextChannel);
+      setIsPlaying(true);
+
+      // 모바일 자동 재생 우회를 위해 동기적으로 src 로드 및 재생
+      if (videoElement && nextChannel.streamType !== 'youtube') {
+        const isNativeHls = nextChannel.streamType === 'hls' && !Hls.isSupported() && videoElement.canPlayType('application/vnd.apple.mpegurl');
+        if (nextChannel.streamType === 'mp4' || isNativeHls) {
+          videoElement.src = nextChannel.streamUrl;
+          videoElement.load();
+          videoElement.play().catch((err) => {
+            console.log("동기 자동 재생 실패, 비동기 처리를 대기합니다:", err);
+          });
+        }
       }
     }
   };
+
+  useEffect(() => {
+    handleVideoEndedRef.current = handleVideoEnded;
+  }, [handleVideoEnded]);
 
   // M3U 내 하위 그룹들 추출
   const m3uGroups = useMemo(() => {

@@ -84,7 +84,7 @@ export const CHANNELS: Channel[] = [
     category: '지상파',
     logo: '🎞️',
     thumbnail: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=80',
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    streamUrl: 'https://media.w3.org/2010/05/sintel/trailer_hd.mp4',
     streamType: 'mp4',
     epg: [
       { startTime: '06:00', endTime: '09:00', title: '특선 영화: [공조 2: 인터내셔날]', description: '삼각 공조로 뭉친 남북미 형사들의 유쾌하고 통쾌한 글로벌 범죄 소탕 작전.', rating: '15' },
