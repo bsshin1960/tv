@@ -1,9 +1,9 @@
 KBS 생방송, https://onair.kbs.co.kr/index.html?sname=onair&stype=live&ch_code=11&ch_type=globalList
-KBS 뉴스,    https://www.youtube.com/watch?v=GplsmCXC3ZY
 MBC,         https://onair.imbc.com/
 SBS,          https://www.sbs.co.kr/
 YTN 뉴스,   https://www.ytn.co.kr/_hd/hd_live.html
 연합 뉴스,  https://www.yonhapnewstv.co.kr/live
 OBS,         https://www.obs.co.kr/onair/
+KBS 뉴스,  https://www.youtube.com/watch?v=GplsmCXC3ZY
+TBC,         http://www.tbc.co.kr/onair/?mid=6_190
 TV 조선,    https://broadcast.tvchosun.com/onair/on.cstv
-
