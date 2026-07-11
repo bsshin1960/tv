@@ -55,6 +55,7 @@ export default function App() {
   
   // M3U 상태 관리
   const [m3uChannels, setM3uChannels] = useState<Channel[]>([]);
+  const [internetChannels, setInternetChannels] = useState<Channel[]>([]);
   const [isLoadingM3u, setIsLoadingM3u] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedM3uGroup, setSelectedM3uGroup] = useState<string>('전체');
@@ -349,6 +350,75 @@ export default function App() {
     loadM3uFile(savedPreset);
   }, []);
 
+  // 시작 시 Internet.txt 파일 동적 로딩 및 파싱
+  useEffect(() => {
+    const loadInternetTxt = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}Internet.txt`);
+        if (!response.ok) {
+          throw new Error('Internet.txt 로드 실패');
+        }
+        const text = await response.text();
+        const lines = text.split(/\r?\n/);
+        const parsed: Channel[] = [];
+        let index = 0;
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const commaIdx = line.indexOf(',');
+          if (commaIdx === -1) continue;
+          const name = line.substring(0, commaIdx).trim();
+          const url = line.substring(commaIdx + 1).trim();
+          if (!name || !url) continue;
+
+          let streamType: 'hls' | 'mp4' | 'youtube' | 'iframe' = 'iframe';
+          if (url.includes('.m3u8')) {
+            streamType = 'hls';
+          } else if (url.includes('.mp4')) {
+            streamType = 'mp4';
+          } else if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('youtube.com/embed/')) {
+            streamType = 'youtube';
+          }
+
+          let finalUrl = url;
+          if (streamType === 'youtube') {
+            let videoId = '';
+            if (url.includes('v=')) {
+              videoId = url.split('v=')[1].split('&')[0];
+            } else if (url.includes('embed/')) {
+              videoId = url.split('embed/')[1].split('?')[0];
+            } else if (url.includes('youtu.be/')) {
+              videoId = url.split('youtu.be/')[1].split('?')[0];
+            } else if (url.includes('youtube.com/watch/')) {
+              videoId = url.split('youtube.com/watch/')[1].split('?')[0];
+            }
+            if (videoId) {
+              finalUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
+            }
+          }
+
+          parsed.push({
+            id: `internet-txt-${index}`,
+            channelNumber: 500 + index,
+            name,
+            category: '인터넷 방송',
+            logo: '🌐',
+            thumbnail: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
+            streamUrl: finalUrl,
+            streamType,
+            epg: [
+              { startTime: '00:00', endTime: '24:00', title: `${name} 실시간 방송`, description: `${name}에서 제공하는 인터넷 실시간 방송입니다.`, rating: 'ALL' }
+            ]
+          });
+          index++;
+        }
+        setInternetChannels(parsed);
+      } catch (err) {
+        console.error('인터넷 채널 로드 실패:', err);
+      }
+    };
+    loadInternetTxt();
+  }, []);
+
   // 마지막 시청 채널 및 카테고리 상태 저장
   useEffect(() => {
     if (activeChannel && activeChannel.id) {
@@ -383,7 +453,7 @@ export default function App() {
 
     if (isLoadingM3u) return;
 
-    if (activeChannel.streamType === 'youtube') {
+    if (activeChannel.streamType === 'youtube' || activeChannel.streamType === 'iframe') {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -517,7 +587,7 @@ export default function App() {
 
   // 4. 비디오 재생/정지 제어
   useEffect(() => {
-    if (!videoElement || activeChannel.streamType === 'youtube') return;
+    if (!videoElement || activeChannel.streamType === 'youtube' || activeChannel.streamType === 'iframe') return;
     if (isPlaying) {
       videoElement.play().catch(() => setIsPlaying(false));
     } else {
@@ -1316,10 +1386,10 @@ export default function App() {
     return ['전체', ...Array.from(groups)];
   }, [m3uChannels]);
 
-  // 전체 채널 목록 결합 (기본 채널 + M3U 채널)
+  // 전체 채널 목록 결합 (기본 채널 + M3U 채널 + 인터넷 동적 채널)
   const allChannels = useMemo(() => {
-    return [...CHANNELS, ...m3uChannels];
-  }, [m3uChannels]);
+    return [...CHANNELS, ...m3uChannels, ...internetChannels];
+  }, [m3uChannels, internetChannels]);
 
   // 카테고리, M3U 그룹, 검색어 통합 필터링
   const filteredChannels = useMemo(() => {
@@ -1424,7 +1494,7 @@ export default function App() {
             </button>
             {isCategoryOpen && (
               <div className="dropdown-menu left">
-                {['전체', 'M3U 방송', '지상파', '인터넷 방송', '홈쇼핑 방송', '즐겨찾기'].map((cat) => (
+                {['전체', 'M3U 방송', '인터넷 방송', '지상파', '홈쇼핑 방송', '즐겨찾기'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => {
@@ -1666,6 +1736,30 @@ export default function App() {
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   ></iframe>
+                ) : activeChannel.streamType === 'iframe' ? (
+                  <div className="w-full h-full relative flex flex-col items-center justify-center bg-[#0a0f1d]" style={{ minHeight: '300px' }}>
+                    <iframe 
+                      key={activeChannel.id}
+                      src={activeChannel.streamUrl}
+                      title={activeChannel.name}
+                      className="w-full h-full border-0"
+                      allowFullScreen
+                    ></iframe>
+                    
+                    {/* 외부 사이트 시청 오버레이 안내 및 버튼 */}
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center gap-2 p-4 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl text-center max-w-[90%] bg-slate-900/90 text-white">
+                      <p className="text-xs font-semibold tracking-wider text-slate-300">보안 정책상 내부 화면이 나오지 않을 수 있습니다.</p>
+                      <a 
+                        href={activeChannel.streamUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-lg flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        외부 페이지에서 방송 보기 ↗
+                      </a>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {/* Canvas: 비디오 프레임을 실시간으로 복사해서 화면에 출력 */}
@@ -1681,7 +1775,7 @@ export default function App() {
               </div>
 
               {/* 수평 스크롤바 (진행률 조절기) */}
-              {activeChannel.streamType !== 'youtube' && isFinite(videoDuration) && videoDuration > 0 && (!activeChannel.isM3u || activeChannel.id.startsWith('local-mp4')) && (
+              {activeChannel.streamType !== 'youtube' && activeChannel.streamType !== 'iframe' && isFinite(videoDuration) && videoDuration > 0 && (!activeChannel.isM3u || activeChannel.id.startsWith('local-mp4')) && (
                 <div 
                   className={`player-scrubber-container ${(isHovered || isTouchActive) ? 'visible' : ''}`}
                   onClick={(e) => e.stopPropagation()}

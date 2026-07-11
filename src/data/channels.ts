@@ -14,7 +14,7 @@ export interface Channel {
   logo: string; // Emoji
   thumbnail: string; // OTT형 썸네일 고화질 이미지 URL
   streamUrl: string;
-  streamType: 'hls' | 'mp4' | 'youtube';
+  streamType: 'hls' | 'mp4' | 'youtube' | 'iframe';
   epg: Program[];
   groupTitle?: string;
   isM3u?: boolean;
@@ -116,49 +116,6 @@ export const CHANNELS: Channel[] = [
     ]
   },
 
-  // 2. 인터넷 방송
-  {
-    id: 'ytn-news',
-    channelNumber: 24,
-    name: 'YTN 실시간 속보 (라이브 뉴스)',
-    category: '인터넷 방송',
-    logo: '📰',
-    thumbnail: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
-    streamUrl: 'https://www.youtube.com/embed/coYw-MBek-c?autoplay=1&mute=1',
-    streamType: 'youtube',
-    epg: [
-      { startTime: '00:00', endTime: '24:00', title: 'YTN Live 뉴스 24 (속보 생중계)', description: '대한민국의 속보와 전세계 주요 뉴스를 24시간 실시간 생중계로 확인하세요.', rating: 'ALL' }
-    ]
-  },
-  {
-    id: 'twitch-stream-sintel',
-    channelNumber: 99,
-    name: 'Streamer Sintel (가상 게임 실황)',
-    category: '인터넷 방송',
-    logo: '🎮',
-    thumbnail: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=500&auto=format&fit=crop&q=80',
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
-    streamType: 'mp4',
-    epg: [
-      { startTime: '06:00', endTime: '12:00', title: '종합 게임 스피드런 챌린지', description: '명작 RPG 게임을 최단 시간으로 클리어하는 가상 게이머 스트리밍.', rating: '12' },
-      { startTime: '12:00', endTime: '18:00', title: '마인크래프트 대규모 건축 방송', description: '시청자들과 소통하며 함께 대형 신전을 건설하는 실시간 야외 방.', rating: 'ALL' },
-      { startTime: '18:00', endTime: '24:00', title: '스팀 신작 오컬트 호러 공포 실황', description: '소름 돋는 그래픽의 신작 서바이벌 호러 게임 첫날 플레이 엔딩.', rating: '19' },
-      { startTime: '00:00', endTime: '06:00', title: '심야 노가리 & 고충 라디오', description: '은은한 BGM과 함께 시청자들의 메일을 읽고 위로하는 힐링 코너.', rating: '15' }
-    ]
-  },
-  {
-    id: 'twitch-stream-bbb',
-    channelNumber: 101,
-    name: 'Ani-World Live (가상 24H 애니)',
-    category: '인터넷 방송',
-    logo: '🦄',
-    thumbnail: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=500&auto=format&fit=crop&q=80',
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    streamType: 'mp4',
-    epg: [
-      { startTime: '00:00', endTime: '24:00', title: 'HD 3D 애니메이션 릴레이 라이브', description: '귀엽고 유쾌한 토끼 바니와 친구들의 고화질 3D 오픈소스 애니메이션 24시간 스트리밍.', rating: 'ALL' }
-    ]
-  },
 
   // 3. 신규 추가된 m3u 기반 해외 채널군 (CONtv Anime, Crackle TV, Cooking Panda, Dabl TV)
   {
