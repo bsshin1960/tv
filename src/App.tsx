@@ -444,8 +444,9 @@ export default function App() {
   // 3. 비디오 채널 스트림 전환
   useEffect(() => {
     setStreamError(null);
-    setScaleX(1.0);
-    setScaleY(1.0);
+    const defaultScale = document.fullscreenElement ? 1.5 : 1.0;
+    setScaleX(defaultScale);
+    setScaleY(defaultScale);
     setRotation(0);
     setPanOffset({ x: 0, y: 0 });
     setVideoCurrentTime(0);
@@ -667,11 +668,12 @@ export default function App() {
         showZoomFeedback(newX, newY);
       } else if (e.key === '0' || e.key === 'r') {
         e.preventDefault();
-        setScaleX(1.0);
-        setScaleY(1.0);
+        const defaultScale = document.fullscreenElement ? 1.5 : 1.0;
+        setScaleX(defaultScale);
+        setScaleY(defaultScale);
         setRotation(0);
         setPanOffset({ x: 0, y: 0 });
-        showZoomFeedback(1.0, 1.0);
+        showZoomFeedback(defaultScale, defaultScale);
       } 
       // Arrow keys (Panning)
       else if (e.key === 'ArrowUp') {
@@ -773,7 +775,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFullscreenChange = () => {
+      const isFS = !!document.fullscreenElement;
+      setIsFullscreen(isFS);
+      const defaultScale = isFS ? 1.5 : 1.0;
+      setScaleX(defaultScale);
+      setScaleY(defaultScale);
+      showZoomFeedback(defaultScale, defaultScale);
+    };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     
     // 모바일 및 PC 전체에서 컨텍스트 메뉴(우클릭 및 롱프레스 다운로드 팝업)를 캡처 단계에서 원천 차단
@@ -2044,11 +2053,12 @@ export default function App() {
                 {/* 초기화 */}
                 <button 
                   onClick={() => {
-                    setScaleX(1.0);
-                    setScaleY(1.0);
+                    const defaultScale = document.fullscreenElement ? 1.5 : 1.0;
+                    setScaleX(defaultScale);
+                    setScaleY(defaultScale);
                     setRotation(0);
                     setPanOffset({ x: 0, y: 0 });
-                    showZoomFeedback(1.0, 1.0);
+                    showZoomFeedback(defaultScale, defaultScale);
                     triggerResetOverlay();
                   }}
                   title="화면 초기화"
